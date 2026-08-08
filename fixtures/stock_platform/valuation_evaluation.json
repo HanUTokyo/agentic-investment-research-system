@@ -1,0 +1,1 @@
+{"symbol":"DEMO","engineVersion":"valuation-java-2.0.0","scenario":{"scenarioType":"BASE","valid":true,"intrinsicValuePerShare":115,"warnings":[]},"sensitivity":{"discountRatesPct":[8,9],"terminalGrowthRatesPct":[2,3],"intrinsicValues":[[120,115],[110,105]]},"reverseDcf":{"impliedInitialGrowthRatePct":7.5,"impliedDiscountRatePct":9,"status":"SOLVED"}}

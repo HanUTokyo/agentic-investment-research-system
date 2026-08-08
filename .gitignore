@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.pyright/
+coverage.xml
+htmlcov/
+*.db
+*.sqlite*
+traces/
+artifacts/
+models/
+

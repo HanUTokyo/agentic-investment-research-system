@@ -1,0 +1,46 @@
+[project]
+name = "agentic-investment-research-system"
+version = "0.1.0"
+description = "A local-first, local-first AI research service over deterministic financial software."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi[standard]>=0.115,<1",
+  "httpx>=0.28,<1",
+  "nooa @ git+https://github.com/NVIDIA-NeMo/labs-OO-Agents.git@v0.0.7",
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+  "pyright>=1.1.390,<2",
+  "ruff>=0.9,<1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+markers = ["integration: requires a running local Router and local models"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["E501", "S101", "B008"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["app"]
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false

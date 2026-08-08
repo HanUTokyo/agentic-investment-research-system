@@ -1,0 +1,10 @@
+FROM python:3.12-slim
+
+RUN useradd --create-home --uid 10001 agent
+WORKDIR /sandbox
+COPY pyproject.toml uv.lock* ./
+RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
+COPY app ./app
+USER agent
+ENV HOME=/sandbox PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENTRYPOINT ["uv", "run", "python"]

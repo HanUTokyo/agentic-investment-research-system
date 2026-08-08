@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      - run: uv run pytest
+      - name: Prevent private artifacts
+        run: |
+          ! git ls-files | grep -E '(^|/)(\.env|.*\.(db|sqlite|dump|pem|key))$'
+          ! git grep -nE '/Users/|BEGIN (RSA |OPENSSH )?PRIVATE KEY' -- . ':!README.md'

@@ -1,0 +1,1 @@
+{"symbol":"DEMO","engineVersion":"valuation-java-2.0.0","selectedModel":"FCFF","overview":{"currentPrice":100,"baseValue":115},"scenarios":[{"scenarioType":"BASE","valid":true,"intrinsicValuePerShare":115,"warnings":[]}],"fieldSources":{"currentPrice":{"source":"PRICE_HISTORY","field":"closePrice"}}}

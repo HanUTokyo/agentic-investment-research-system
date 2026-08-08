@@ -1,0 +1,15 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Investment Platform adapter snapshot",
+    "version": "local-schema-2026-08-08",
+    "description": "Schema-only adapter contract derived from the local Spring controllers and DTOs. Replace with a sanitized live GET /v3/api-docs capture before public release."
+  },
+  "paths": {
+    "/api/valuations/{symbol}": {"get": {"summary": "Authoritative valuation snapshot"}},
+    "/api/valuations/{symbol}/evaluate": {"post": {"summary": "Unsaved scenario, sensitivity, and reverse DCF"}},
+    "/api/portfolio/export/v2": {"get": {"summary": "Structured portfolio export"}},
+    "/api/portfolio/history/fundamentals": {"get": {"summary": "Quarterly fundamentals by symbol"}},
+    "/api/portfolio/history/capital-allocation": {"get": {"summary": "Capital allocation history by symbol"}}
+  }
+}
