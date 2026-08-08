@@ -13,4 +13,6 @@ exec docker run --rm \
   --pids-limit 128 --memory 1024m --cpus 1.0 \
   --network agent-restricted \
   --user 10001:10001 \
+  --env STOCK_PLATFORM_BASE_URL=http://stock-proxy:8080 \
+  --env AI_ROUTER_BASE_URL=http://router-proxy:8080 \
   agentic-investment-research-sandbox "$@"

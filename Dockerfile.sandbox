@@ -1,10 +1,14 @@
 FROM python:3.12-slim
 
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 10001 agent
 WORKDIR /sandbox
 COPY pyproject.toml uv.lock* ./
 RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
 COPY app ./app
 USER agent
-ENV HOME=/sandbox PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-ENTRYPOINT ["uv", "run", "python"]
+ENV HOME=/sandbox PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_CACHE_DIR=/tmp/uv-cache
+ENTRYPOINT [".venv/bin/python"]

@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+
+RUN useradd --create-home --uid 10002 gateway
+WORKDIR /gateway
+COPY scripts/sandbox/gateway.py ./gateway.py
+USER gateway
+EXPOSE 8080
+ENTRYPOINT ["python", "gateway.py"]
