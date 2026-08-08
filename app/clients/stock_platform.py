@@ -70,15 +70,28 @@ class StockPlatformClient:
     async def run_valuation_scenario(
         self, symbol: str, scenario_type: str, assumptions: dict[str, Any] | None = None
     ) -> ValuationEvaluation:
-        payload: dict[str, Any] = {
-            "scenarioType": scenario_type.upper(),
-            "assumptions": assumptions,
-        }
+        payload: dict[str, Any] = {"scenarioType": scenario_type.upper()}
+        if assumptions is not None:
+            payload["assumptions"] = assumptions
         result = await self._write_json(f"/api/valuations/{self._symbol(symbol)}/evaluate", payload)
         return self._parse(ValuationEvaluation, result)
 
     async def solve_market_implied_assumptions(self, symbol: str) -> dict[str, Any] | None:
-        evaluation = await self.run_valuation_scenario(symbol, "BASE")
+        # `/evaluate` does not load a persisted scenario.  Reuse the saved BASE
+        # settings exposed by the read-only valuation snapshot so the reverse-DCF
+        # result is based on the same Java-engine assumptions the user sees.
+        snapshot = await self.get_current_valuation(symbol)
+        base = next(
+            (
+                scenario
+                for scenario in snapshot.scenarios
+                if scenario.scenario_type.upper() == "BASE"
+            ),
+            None,
+        )
+        if base is None or not base.valid or base.resolved_assumptions is None:
+            return None
+        evaluation = await self.run_valuation_scenario(symbol, "BASE", base.resolved_assumptions)
         return evaluation.reverse_dcf
 
     async def _read_json(self, path: str, params: dict[str, str] | None = None) -> Any:

@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -67,3 +69,67 @@ async def test_readiness_uses_existing_openapi_endpoint(settings) -> None:
     )
     assert await client.readiness()
     assert requested == ["/v3/api-docs"]
+
+
+@pytest.mark.asyncio
+async def test_omits_optional_assumptions_from_default_scenario(settings) -> None:
+    payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "symbol": "DEMO",
+                "engineVersion": "v1",
+                "scenario": {"scenarioType": "BASE", "valid": True},
+            },
+        )
+
+    client = StockPlatformClient(
+        settings,
+        httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://stock.test"),
+    )
+    await client.run_valuation_scenario("DEMO", "BASE")
+    assert payloads == [{"scenarioType": "BASE"}]
+
+
+@pytest.mark.asyncio
+async def test_reverse_dcf_reuses_saved_base_assumptions(settings) -> None:
+    payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/valuations/DEMO" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "symbol": "DEMO",
+                    "engineVersion": "v1",
+                    "scenarios": [
+                        {
+                            "scenarioType": "BASE",
+                            "valid": True,
+                            "resolvedAssumptions": {"initialGrowthRatePct": 7},
+                        }
+                    ],
+                },
+            )
+        if request.url.path == "/api/valuations/DEMO/evaluate":
+            payloads.append(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "symbol": "DEMO",
+                    "engineVersion": "v1",
+                    "scenario": {"scenarioType": "BASE", "valid": True},
+                    "reverseDcf": {"status": "AVAILABLE"},
+                },
+            )
+        return httpx.Response(404)
+
+    client = StockPlatformClient(
+        settings,
+        httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://stock.test"),
+    )
+    assert await client.solve_market_implied_assumptions("DEMO") == {"status": "AVAILABLE"}
+    assert payloads == [{"scenarioType": "BASE", "assumptions": {"initialGrowthRatePct": 7}}]
