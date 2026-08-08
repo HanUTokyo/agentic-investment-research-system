@@ -6,6 +6,7 @@ all methods and paths not required by Phase 1 tools.
 """
 
 import json
+import os
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -36,9 +37,14 @@ class Gateway(BaseHTTPRequestHandler):
             self._log_request(alias, path, None, 403)
             self.send_error(403, "sandbox gateway policy denied request")
             return
+        host = (
+            os.environ.get("SANDBOX_ROUTER_HOST", "host.docker.internal")
+            if alias == "router-proxy"
+            else os.environ.get("SANDBOX_STOCK_HOST", "host.docker.internal")
+        )
         port = 8000 if alias == "router-proxy" else 8080
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-        connection = HTTPConnection("host.docker.internal", port, timeout=30)
+        connection = HTTPConnection(host, port, timeout=30)
         headers = {
             key: value
             for key, value in self.headers.items()
@@ -75,6 +81,8 @@ class Gateway(BaseHTTPRequestHandler):
             else:
                 if isinstance(payload, dict):
                     summary["json_keys"] = sorted(payload.keys())
+                    if payload.get("route_hint") in {"chat", "reason", "code"}:
+                        summary["route_hint"] = payload["route_hint"]
                     tools = payload.get("tools")
                     if isinstance(tools, list):
                         summary["tool_names"] = sorted(

@@ -49,7 +49,11 @@ class AuditedCodeActStrategy(CodeActStrategy):
 
 
 class ArithmeticSmokeAgent(Agent):
-    @strategy(AuditedCodeActStrategy(config=CodeActConfig(max_iterations=5, max_retries=1)))
+    @strategy(
+        AuditedCodeActStrategy(
+            config=CodeActConfig(max_iterations=2, max_retries=1, max_tokens=128)
+        )
+    )
     async def solve(self, task: str) -> int:
         """Use Python to calculate the requested arithmetic and return the integer only."""
         ...
@@ -64,7 +68,11 @@ class ValuationToolSmokeAgent(Agent):
         """Return the authoritative Java valuation engine version for a tracked symbol."""
         return (await self._stock_client.get_current_valuation(symbol)).engine_version
 
-    @strategy(AuditedCodeActStrategy(config=CodeActConfig(max_iterations=5, max_retries=1)))
+    @strategy(
+        AuditedCodeActStrategy(
+            config=CodeActConfig(max_iterations=2, max_retries=1, max_tokens=128)
+        )
+    )
     async def inspect(self, task: str) -> str:
         """Use the provided deterministic method and return the exact engine version only."""
         ...
@@ -72,11 +80,13 @@ class ValuationToolSmokeAgent(Agent):
 
 async def main() -> None:
     settings = get_settings()
-    agent = ArithmeticSmokeAgent(llm=build_nooa_router_llm(settings))
+    agent = ArithmeticSmokeAgent(llm=build_nooa_router_llm(settings, route_hint="code"))
     result = await agent.solve("Use Python to calculate 17 * 25 + 8. Return only the integer.")
     stock_client = StockPlatformClient(settings)
     try:
-        valuation_agent = ValuationToolSmokeAgent(stock_client, llm=build_nooa_router_llm(settings))
+        valuation_agent = ValuationToolSmokeAgent(
+            stock_client, llm=build_nooa_router_llm(settings, route_hint="code")
+        )
         engine_version = await valuation_agent.inspect(
             "Call get_engine_version with AAPL. Return the exact result only."
         )
