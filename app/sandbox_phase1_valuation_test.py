@@ -80,6 +80,7 @@ async def main() -> None:
             AdditionalScenarioDecision,
             temperature=0,
             max_tokens=120,
+            route_hint="reason",
         )
         scenarios = [base.scenario]
         if decision.run_additional_scenario:
@@ -111,6 +112,7 @@ async def main() -> None:
             ShortSynthesis,
             temperature=0,
             max_tokens=160,
+            route_hint="reason",
         )
         report = ValuationReport(
             symbol="AAPL",
