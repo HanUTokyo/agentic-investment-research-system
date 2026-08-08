@@ -5,6 +5,7 @@ selects the Java or Router host service from its internal DNS alias and rejects
 all methods and paths not required by Phase 1 tools.
 """
 
+import json
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -32,6 +33,7 @@ class Gateway(BaseHTTPRequestHandler):
         alias = self.headers.get("Host", "").split(":", 1)[0]
         path = self.path.split("?", 1)[0]
         if not self._allowed(alias, self.command, path):
+            self._log_request(alias, path, None, 403)
             self.send_error(403, "sandbox gateway policy denied request")
             return
         port = 8000 if alias == "router-proxy" else 8080
@@ -46,6 +48,7 @@ class Gateway(BaseHTTPRequestHandler):
             connection.request(self.command, self.path, body=body, headers=headers)
             upstream = connection.getresponse()
             data = upstream.read()
+            self._log_request(alias, path, body, upstream.status)
             self.send_response(upstream.status)
             self.send_header("Content-Type", upstream.getheader("Content-Type", "application/json"))
             self.send_header("Content-Length", str(len(data)))
@@ -53,6 +56,40 @@ class Gateway(BaseHTTPRequestHandler):
             self.wfile.write(data)
         finally:
             connection.close()
+
+    def _log_request(self, alias: str, path: str, body: bytes | None, status: int) -> None:
+        """Emit structural diagnostics only; request content is never logged."""
+        summary: dict[str, object] = {
+            "event": "sandbox_gateway_request",
+            "alias": alias,
+            "method": self.command,
+            "path": path,
+            "status": status,
+            "content_length": len(body or b""),
+        }
+        if body:
+            try:
+                payload = json.loads(body)
+            except (TypeError, UnicodeDecodeError, json.JSONDecodeError):
+                summary["json"] = "invalid_or_non_json"
+            else:
+                if isinstance(payload, dict):
+                    summary["json_keys"] = sorted(payload.keys())
+                    tools = payload.get("tools")
+                    if isinstance(tools, list):
+                        summary["tool_names"] = sorted(
+                            str(item.get("function", {}).get("name", "unknown"))
+                            for item in tools
+                            if isinstance(item, dict)
+                        )
+                    messages = payload.get("messages")
+                    if isinstance(messages, list):
+                        summary["message_roles"] = [
+                            str(item.get("role", "unknown"))
+                            for item in messages
+                            if isinstance(item, dict)
+                        ]
+        print(json.dumps(summary, sort_keys=True), flush=True)
 
     @staticmethod
     def _allowed(alias: str, method: str, path: str) -> bool:
