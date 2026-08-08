@@ -1,11 +1,16 @@
+import json
+import re
 from time import perf_counter
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 from pydantic import BaseModel, Field
 
 from app.clients.errors import UpstreamProtocolError, UpstreamServiceError, UpstreamTimeoutError
 from app.config import Settings
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
+_JSON_FENCE = re.compile(r"\A```(?:json)?\s*\n(?P<body>.*?)\n```\Z", re.DOTALL | re.IGNORECASE)
 
 
 class RouteDecision(BaseModel):
@@ -72,6 +77,34 @@ class RouterClient:
             latency_ms=(perf_counter() - started) * 1000,
             raw=response,
         )
+
+    async def complete_structured(
+        self,
+        messages: list[dict[str, Any]],
+        response_model: type[ModelT],
+        **kwargs: Any,
+    ) -> ModelT:
+        """Return a Pydantic-validated result from plain or single-fenced JSON.
+
+        Local models commonly wrap valid JSON in one Markdown fence. This removes
+        that exact wrapper only; prose, multiple blocks, and invalid JSON remain
+        protocol failures instead of being guessed or repaired.
+        """
+        completion = await self.complete(messages, **kwargs)
+        text = completion.content.strip()
+        fence = _JSON_FENCE.fullmatch(text)
+        if fence:
+            text = fence.group("body").strip()
+        try:
+            payload = json.loads(text)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise UpstreamProtocolError("router did not return a JSON object") from exc
+        if not isinstance(payload, dict):
+            raise UpstreamProtocolError("router did not return a JSON object")
+        try:
+            return response_model.model_validate(payload)
+        except Exception as exc:
+            raise UpstreamProtocolError("router JSON violated the requested contract") from exc
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         try:
