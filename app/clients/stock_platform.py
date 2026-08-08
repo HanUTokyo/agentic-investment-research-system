@@ -34,7 +34,8 @@ class StockPlatformClient:
 
     async def readiness(self) -> bool:
         try:
-            response = await self._client.get("/actuator/health")
+            # The Java platform publishes OpenAPI but does not depend on Spring Actuator.
+            response = await self._client.get("/v3/api-docs")
             return response.is_success
         except httpx.HTTPError:
             return False

@@ -51,3 +51,19 @@ async def test_rejects_invalid_contract(settings) -> None:
     )
     with pytest.raises(UpstreamProtocolError):
         await client.get_current_valuation("DEMO")
+
+
+@pytest.mark.asyncio
+async def test_readiness_uses_existing_openapi_endpoint(settings) -> None:
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.url.path)
+        return httpx.Response(200, json={"openapi": "3.0.1"})
+
+    client = StockPlatformClient(
+        settings,
+        httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://stock.test"),
+    )
+    assert await client.readiness()
+    assert requested == ["/v3/api-docs"]
