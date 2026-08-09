@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.agents import ValuationAgent
+from app.agents.valuation_projection import project_compact_valuation
 from app.clients.ai_router import RoutedCompletion
 from app.clients.mock_stock_platform import MockStockPlatformClient
 from app.contracts import CodeDraft, CodeTask, ReasonTask, ValuationSnapshot
@@ -76,3 +77,15 @@ async def test_current_valuation_tool_omits_unneeded_projection_rows() -> None:
     assert isinstance(valuation, ValuationSnapshot)
     assert valuation.scenarios
     assert "projection" not in valuation.scenarios[0].model_dump()
+
+
+@pytest.mark.asyncio
+async def test_compact_projection_uses_only_authoritative_snapshot_fields() -> None:
+    client = MockStockPlatformClient(Path("fixtures/stock_platform"))
+    raw = await client.get_current_valuation("demo")
+
+    compact = project_compact_valuation(raw)
+
+    assert compact.symbol == raw.symbol
+    assert compact.base_value == raw.overview["baseValue"]
+    assert compact.selected_model == raw.selected_model

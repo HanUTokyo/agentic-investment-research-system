@@ -8,6 +8,7 @@ from nooa.config import CodeActConfig
 from nooa.decorators import strategy
 from nooa.strategies import CodeActStrategy
 
+from app.agents.valuation_projection import project_trimmed_valuation
 from app.contracts import (
     CodeDraft,
     CodeTask,
@@ -17,7 +18,6 @@ from app.contracts import (
     ReasonTask,
     ValuationEvaluation,
     ValuationReport,
-    ValuationScenario,
     ValuationSnapshot,
     WorkerResult,
 )
@@ -93,29 +93,7 @@ class ValuationAgent(Agent):
         raw = await self._call(
             "get_current_valuation", self._data_client.get_current_valuation(symbol)
         )
-        return ValuationSnapshot(
-            symbol=raw.symbol,
-            engine_version=raw.engine_version,
-            selected_model=raw.selected_model,
-            calculation_date=raw.calculation_date,
-            data_quality=raw.data_quality,
-            overview=raw.overview,
-            scenarios=[
-                ValuationScenario(
-                    scenario_type=scenario.scenario_type,
-                    selected_model=scenario.selected_model,
-                    valid=scenario.valid,
-                    intrinsic_value_per_share=scenario.intrinsic_value_per_share,
-                    margin_of_safety_price=scenario.margin_of_safety_price,
-                    warnings=scenario.warnings,
-                    resolved_assumptions=scenario.resolved_assumptions,
-                )
-                for scenario in raw.scenarios
-            ],
-            diagnostics=raw.diagnostics,
-            missing_fields=raw.missing_fields,
-            field_sources=raw.field_sources,
-        )
+        return project_trimmed_valuation(raw)
 
     async def run_valuation_scenario(
         self, symbol: str, scenario_type: str, assumptions: dict[str, Any] | None = None
