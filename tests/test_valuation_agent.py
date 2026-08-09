@@ -137,5 +137,5 @@ async def test_finalization_rejects_unsupported_numerical_prose() -> None:
         generated_at=agent.report_timestamp(),
     )
 
-    with pytest.raises(InvariantError, match="unsupported numerical"):
+    with pytest.raises(InvariantError, match="UNSUPPORTED_NUMERIC_CLAIM"):
         agent.validate_final_report(report)

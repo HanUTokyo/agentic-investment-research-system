@@ -96,8 +96,11 @@ class ValuationAgent(Agent):
         """Reject illegal final state; NOOA feeds this invariant error back to the model."""
         if not self.initial_valuation_loaded:
             raise InvariantError(
-                "Cannot finalize before initial valuation evidence is collected. "
-                "Call get_compact_valuation(symbol) before return_result."
+                "ERROR_TYPE: MISSING_INITIAL_EVIDENCE\n"
+                "FIELD: initial_valuation_loaded\n"
+                "INVALID_VALUE: false\n"
+                "EXPECTED_SOURCE: get_compact_valuation(symbol)\n"
+                "REQUIRED_ACTION: call get_compact_valuation before return_result"
             )
 
     def validate_final_report(self, report: ValuationReport) -> None:
@@ -106,13 +109,19 @@ class ValuationAgent(Agent):
         unsupported = unsupported_numerical_claim_count(report)
         if unsupported:
             raise InvariantError(
-                f"Cannot finalize: report has {unsupported} unsupported numerical prose claim(s). "
-                "Remove numerical prose or add deterministic Java Evidence."
+                "ERROR_TYPE: UNSUPPORTED_NUMERIC_CLAIM\n"
+                "FIELD: conclusion_or_uncertainty\n"
+                f"INVALID_VALUE: {unsupported} numerical prose claim(s)\n"
+                "EXPECTED_SOURCE: deterministic Java Evidence only\n"
+                "REQUIRED_ACTION: remove numerical prose and retry finalization"
             )
         if not all_scenario_values_grounded(report):
             raise InvariantError(
-                "Cannot finalize: every scenario intrinsic value must have an Evidence "
-                "source_path containing intrinsic_value_per_share and its Java value."
+                "ERROR_TYPE: INVALID_EVIDENCE_PATH\n"
+                "FIELD: scenario intrinsic_value_per_share evidence\n"
+                "INVALID_VALUE: missing or mismatched source_path\n"
+                "EXPECTED_SOURCE: Java-backed path containing intrinsic_value_per_share\n"
+                "REQUIRED_ACTION: use the matching compact observation evidence path and retry"
             )
 
     async def get_company_snapshot(self, symbol: str) -> CompanySnapshot:
