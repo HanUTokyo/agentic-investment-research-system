@@ -1,6 +1,6 @@
 # Agentic Investment Research System
 
-A local-first, local-first AI research service that investigates a real, deterministic investment platform instead of replacing it with an LLM.
+A local-first AI research service that investigates a deterministic investment platform instead of replacing it with an LLM.
 
 ## The idea in two minutes
 
@@ -27,7 +27,7 @@ Phase 0/1 provides a typed read-only integration layer, synthetic mock platform,
 
 ## Phase 1 evidence: seven model shapes
 
-**Phase 1 finding:** Phase 1 does not claim that more agents or more models are automatically better. On one frozen public synthetic AAPL case, the fastest grounded success was a direct typed Ministral dispatcher (32.6s). The NOOA + three-worker shape also produced a grounded report, but took 335.7s while R1 returned empty content and Coder violated its JSON contract. This is evidence for bounded orchestration and evaluation—not a marketing claim about multi-agent superiority.
+**Phase 1 finding:** More agents or more models are not automatically better. On one frozen public synthetic AAPL case, the fastest grounded success was a direct typed Ministral dispatcher (32.6s). The NOOA + three-worker shape also produced a grounded report, but took 335.7s while R1 returned empty content and Coder violated its JSON contract. The result is evidence for bounded orchestration and evaluation, not a claim of multi-agent superiority.
 
 The comparison uses a single question and no private data:
 

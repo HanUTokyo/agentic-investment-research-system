@@ -1,7 +1,7 @@
 [project]
 name = "agentic-investment-research-system"
 version = "0.1.0"
-description = "A local-first, local-first AI research service over deterministic financial software."
+description = "A local-first AI research service over deterministic financial software."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
