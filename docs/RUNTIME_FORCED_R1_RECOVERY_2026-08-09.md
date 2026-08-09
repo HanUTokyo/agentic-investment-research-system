@@ -5,9 +5,10 @@
 `RuntimeForcedRecoveryStrategy` extends NOOA `CodeActStrategy` at its async
 tool-call boundary. When — and only when — a native `return_result` postcondition
 has emitted `INVALID_EVIDENCE_PATH`, the runtime awaits one R1 request before it
-permits the next Ministral generation. It then appends either a typed
-`RUNTIME_RECOVERY_PLAN` observation or a concise recovery-failure observation to
-the NOOA event stream.
+permits the next Ministral generation. It appends a typed
+`RUNTIME_RECOVERY_PLAN` observation on success. After this run, the runtime was
+also updated so an R1 transport failure becomes a concise recovery-failure
+observation rather than aborting the NOOA loop.
 
 This is deliberately not an automatic corrective action. R1 receives only the
 structured invariant feedback and proposes a Pydantic `RecoveryPlan`. Ministral

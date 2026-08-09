@@ -279,7 +279,12 @@ class RuntimeForcedR1RecoveryAgent(R1AssistedInvariantRecoveryAgent):
     async def force_runtime_recovery_plan(self) -> None:
         """Runtime-only trigger; this is not a Controller-selected capability."""
         self.runtime_recovery_triggered = True
-        await self.delegate_recovery_reason()
+        try:
+            await self.delegate_recovery_reason()
+        except RuntimeError:
+            # Preserve the R1 failure as the next NOOA observation. The runtime
+            # never fabricates a plan, retries a worker, or repairs the report.
+            return
 
     def runtime_recovery_observation(self) -> str:
         """Return concise typed recovery context for the next Controller turn."""

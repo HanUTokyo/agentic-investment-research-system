@@ -123,3 +123,23 @@ async def test_runtime_forces_one_typed_plan_after_matching_invariant() -> None:
     assert agent.recovery_plan is not None
     assert "RUNTIME_RECOVERY_PLAN" in agent.runtime_recovery_observation()
     assert agent.should_force_runtime_recovery() is False
+
+
+@pytest.mark.asyncio
+async def test_runtime_preserves_r1_transport_failure_as_observation() -> None:
+    class _FailingRouter:
+        async def complete(self, _messages, **_kwargs):
+            raise ConnectionError("router unavailable")
+
+    agent = RuntimeForcedR1RecoveryAgent(
+        MockStockPlatformClient(Path("fixtures/stock_platform")),
+        recovery_client=_FailingRouter(),
+        llm=MagicMock(),
+    )
+    agent.last_invariant_feedback = "ERROR_TYPE: INVALID_EVIDENCE_PATH"
+
+    await agent.force_runtime_recovery_plan()
+
+    assert agent.runtime_recovery_triggered is True
+    assert agent.recovery_plan is None
+    assert "RUNTIME_RECOVERY_FAILURE" in agent.runtime_recovery_observation()
