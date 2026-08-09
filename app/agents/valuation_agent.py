@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from time import perf_counter
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from nooa import Agent
@@ -232,7 +232,7 @@ class ValuationAgent(Agent):
         )
 
     async def _delegate_advisory(
-        self, *, capability: str, prompt: str, system: str
+        self, *, capability: Literal["reason", "code", "chat"], prompt: str, system: str
     ) -> WorkerResult:
         """Transport raw worker content to the Controller without a worker JSON contract.
 
@@ -250,6 +250,7 @@ class ValuationAgent(Agent):
                 http_success=False,
                 content_empty=True,
                 error_type=f"{capability}_worker_attempt_limit_exceeded",
+                requested_capability=capability,
             )
             self.advisory_results.append(result)
             return result
@@ -259,6 +260,7 @@ class ValuationAgent(Agent):
                 http_success=False,
                 content_empty=True,
                 error_type=f"{capability}_worker_not_configured",
+                requested_capability=capability,
             )
             self.advisory_results.append(result)
             return result
@@ -282,6 +284,7 @@ class ValuationAgent(Agent):
                 error_type=None if content else "empty_content",
                 latency_ms=completion.latency_ms,
                 route_hint="auto",
+                requested_capability=capability,
                 model=completion.model,
             )
         except Exception as exc:
@@ -291,6 +294,7 @@ class ValuationAgent(Agent):
                 content_empty=True,
                 error_type=type(exc).__name__,
                 latency_ms=(perf_counter() - started) * 1000,
+                requested_capability=capability,
             )
         self.advisory_results.append(worker)
         return worker

@@ -147,6 +147,7 @@ class WorkerResult(ContractModel):
     # classifier policy selects the model.  The named values remain only for
     # historical compatibility probes that explicitly tested route hints.
     route_hint: Literal["auto", "reason", "code", "chat"] = "auto"
+    requested_capability: Literal["reason", "code", "chat"] | None = None
     model: str | None = None
 
 

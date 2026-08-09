@@ -27,7 +27,7 @@ Phase 0/1 provides a typed read-only integration layer, synthetic mock platform,
 
 ## Phase 1 evidence: seven model shapes
 
-**Phase 1 finding:** More agents or more models are not automatically better. On one frozen public synthetic AAPL case, the fastest grounded success was a direct typed Ministral dispatcher (32.6s). The NOOA + three-worker shape also produced a grounded report, but took 335.7s while R1 returned empty content and Coder returned free-form Markdown under that experiment's then-strict JSON probe. The current worker boundary preserves non-empty raw advisory content for Controller review; it never executes it or treats it as evidence. The result is evidence for bounded orchestration and evaluation, not a claim of multi-agent superiority.
+**Phase 1 finding:** More agents or more models are not automatically better. On the latest frozen public synthetic AAPL rerun, direct typed Ministral was the fastest grounded success (49.0s); the NOOA Controller plus Router auto-selected advisory also produced a grounded report, but took 313.5s. The Controller selected one advisory capability; Router returned non-empty raw content without an explicit route hint. The current worker boundary preserves non-empty raw advisory content for Controller review, but never executes it or treats it as evidence. The result is evidence for bounded orchestration and evaluation, not a claim of multi-agent superiority.
 
 The comparison uses a single question and no private data:
 
@@ -107,7 +107,7 @@ Direct typed dispatcher synthesis:
 "Return only a JSON object matching ValuationSynthesis. Do not use digits or make numerical claims. Copy selected_model exactly as valuation_basis. Use only supplied Java warnings and observations."
 
 NOOA typed decision:
-"Choose exactly one action from RUN_SCENARIO, DELEGATE_REASON, FINALIZE. Initial Java valuation evidence has already been acquired deterministically. You cannot call tools or write Python. ... Never invent financial numbers or tool names."
+"Choose exactly one action from RUN_SCENARIO, DELEGATE_REASON, DELEGATE_CODE, DELEGATE_CHAT, or FINALIZE. Initial Java valuation evidence has already been acquired deterministically. You cannot call tools or write Python. ... Never invent financial numbers or tool names."
 ```
 
 The full literal per-turn NOOA prompts, including retry/error observations, are intentionally retained in the linked artifacts rather than duplicated inside the README.
@@ -116,22 +116,24 @@ The full literal per-turn NOOA prompts, including retry/error observations, are 
 
 | # | Form | Final result | Latency | Grounded report? | What the run establishes |
 | --- | --- | --- | ---: | --- | --- |
-| 1 | Direct Gemma, strict typed dispatcher | No final typed report | >315s | No | `response_format` transport path was not reliable; strict failure is retained. |
-| 2 | Direct Ministral, strict typed dispatcher | Success | 32.6s | Yes; unsupported numerical claims = 0 | Small typed decisions can be more reliable than free-form CodeAct. |
-| 3 | NOOA Ministral, no Router worker, completion-focused rerun | Success | 115.0s | Yes; unsupported numerical claims = 0 | State-specific legal-action constraints let the controller finish without an unavailable worker. |
-| 4 | NOOA Ministral + Router workers | Success | 335.7s | Yes; unsupported numerical claims = 0 | Worker failures were visible and did not corrupt Java-backed numbers. |
-| 5 | Direct Gemma, full raw Java snapshot | Complete free-form text | 61.2s | No gate | Readable answer after a larger output budget; qualitative inference remains ungrounded. |
-| 6 | Direct Ministral, full raw Java snapshot | Complete free-form text | 31.1s | No gate | Fast readable baseline, but it introduced an unsupported qualitative inference. |
-| 7 | GPT-5.6 Terra, full raw Java snapshot | Complete free-form text | Latency unavailable | No gate | Strong concise baseline; one conclusion is still an inference, not a Java field. |
+| 1 | Direct Gemma, strict typed dispatcher | Success | 99.3s | Yes; unsupported numerical claims = 0 | The same bounded contract now completed without repair. |
+| 2 | Direct Ministral, strict typed dispatcher | Success | 49.0s | Yes; unsupported numerical claims = 0 | Typed decisions and synthesis completed with the same fixture. |
+| 3 | NOOA Ministral, no Router worker, completion-focused rerun | Success | 112.5s | Yes; unsupported numerical claims = 0 | The controller completed through the constrained legal-action path. |
+| 4 | NOOA Ministral + Router auto-selected advisory | Success | 313.5s | Yes; unsupported numerical claims = 0 | One non-empty raw advisory was returned to the controller; no hint was supplied to Router. |
+| 5 | Direct Gemma, full raw Java snapshot | Complete free-form text | 71.1s | No gate | Readable baseline; qualitative interpretation remains outside the typed grounding gate. |
+| 6 | Direct Ministral, full raw Java snapshot | Complete free-form text | 29.7s | No gate | Fast readable baseline; it still adds qualitative causal interpretation beyond Java fields. |
+| 7 | GPT-5.6 Terra, full raw Java snapshot | Complete free-form text | Latency unavailable | No gate | Native-model comparison only; not a timed local HTTP measurement. |
 
 Each row is one serial diagnostic run, not a statistical ranking. Local model load/unload and cache effects are included in latency. The completion-focused #3 is separately labelled because it changes the legal action set (`RUN_SCENARIO | FINALIZE`) and increases the explanation/retry budget; it does **not** overwrite the original strict #3 failure.
 
 ### Final outputs for human review
 
 <details>
-<summary><strong>1. Direct Gemma strict typed dispatcher — protocol failure</strong></summary>
+<summary><strong>1. Direct Gemma strict typed dispatcher — final grounded conclusion</strong></summary>
 
-The strict form has no final `ValuationReport`: it exceeded the 300s client and 315s gateway budgets with the OpenAI-compatible `response_format` request. A later JSON-only transport attempt returned Markdown fences and wrong schema keys; strict `json.loads` and Pydantic correctly rejected it. No parser repair, fallback report, or fabricated success was used.
+> The current market price significantly exceeds the base intrinsic value derived from the FCFE model. This discrepancy suggests that the valuation may be influenced by factors not captured in the standard financial models, such as future growth expectations or market sentiment.
+
+Its typed uncertainty identified potentially buyback-distorted ROE. The runtime attached Java-derived scenarios and evidence paths; grounding passed.
 </details>
 
 <details>
@@ -151,19 +153,17 @@ Its typed uncertainty was the incomplete FCFF cross-check and potentially buybac
 </details>
 
 <details>
-<summary><strong>4. NOOA Ministral + R1 → Coder → Gemma — final grounded conclusion</strong></summary>
+<summary><strong>4. NOOA Ministral + Router auto-selected advisory — final grounded conclusion</strong></summary>
 
 > AAPL's current market valuation appears significantly detached from its intrinsic value estimates based on FCFE model projections, indicating a potential overvaluation or mispricing by the market.
 
-Worker inputs were capability-scoped and serial:
+Ministral selected one capability-scoped advisory after receiving deterministic evidence:
 
 ```text
-R1/reason: "Return one non-numerical evidence gap only. Do not call tools or quote values."
-Coder/code: "Create sorted unique scenario type strings only. No imports, files, network, shell, DCF, price, or return calculations."
-Gemma/chat: "Return one short non-numerical warning summary only. Do not recommend a trade."
+reason: "Return one non-numerical evidence gap only. Do not call tools or quote values."
 ```
 
-Observed worker outputs: R1 returned HTTP 200 with empty `content`; Coder returned Markdown rather than `CodeDraft` JSON and was never executed; Gemma returned “Review financial metrics for completeness and potential distortions.” The controller still produced a valid grounded report after one Java BULL scenario. This is fault containment, not evidence that all workers improved the answer.
+The Router request contained no `route_hint`; its response returned non-empty advisory text and the logical model identifier `local-router` (the current Router response does not expose the underlying selected model). The raw advisory was passed to Ministral as untrusted context, never executed or used as numerical evidence. The controller then ran one Java BULL scenario and produced a grounded report. This does not establish that the advisory improved final quality.
 </details>
 
 <details>
@@ -189,7 +189,7 @@ This is complete (`finish_reason=stop`) but has no evidence-path or claim-ground
 <details>
 <summary><strong>7. GPT-5.6 Terra with full raw Java snapshot — free-form result</strong></summary>
 
-> AAPL’s market price of 313.33 is above the FCFE base intrinsic value of 84.0 because the valuation’s bull case reaches only 160.81, indicating the market is pricing expectations beyond the supplied scenarios.
+> AAPL’s market price of 313.33 is above the FCFE base intrinsic value of 84.0 and also above the supplied bull value of 160.81. The deterministic data establishes that gap, but does not by itself establish its cause.
 >
 > The most important uncertainty is model reliability: the FCFF cross-check is incomplete, while high ROE may be distorted by buybacks or a small equity base.
 

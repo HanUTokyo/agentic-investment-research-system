@@ -19,7 +19,7 @@ from app.agents.valuation_grounding import (
 from app.clients import RouterClient
 from app.config import get_settings
 from app.contracts import NextActionDecision, ValuationReport, ValuationSynthesis
-from app.evaluation.four_way import DirectStructuredClient, FrozenValuationClient, WorkerBundle
+from app.evaluation.four_way import DirectStructuredClient, FrozenValuationClient
 from app.llm import build_nooa_controller_llm
 
 CASE_PATH = Path("/sandbox/fixtures/eval/phase1b_aapl.json")
@@ -51,7 +51,7 @@ def _direct_messages(stage: str, context: str) -> list[dict[str, str]]:
     if stage == "decision":
         system = (
             "Return only a JSON object matching NextActionDecision. Choose RUN_SCENARIO, "
-            "DELEGATE_REASON, or FINALIZE. Java observations are authoritative. Do not invent "
+            "DELEGATE_REASON, DELEGATE_CODE, DELEGATE_CHAT, or FINALIZE. Java observations are authoritative. Do not invent "
             "numbers, tools, or Python. Prefer FINALIZE when evidence is sufficient."
         )
     else:
@@ -77,7 +77,7 @@ async def _direct_condition(name: str, model: str) -> dict[str, Any]:
     decisions: list[dict[str, Any]] = []
     try:
         compact = await agent.get_compact_valuation("AAPL")
-        for _ in range(3):
+        for _ in range(5):
             context = agent.build_decision_context(
                 question, compact, scenario, None, "EVIDENCE_COLLECTED"
             )
@@ -98,7 +98,7 @@ async def _direct_condition(name: str, model: str) -> dict[str, Any]:
                 report = agent.materialize_evaluation_report(compact, scenario, synthesis)
                 agent.validate_final_report(report)
                 return _success_record(name, started, report, decisions, client.calls, agent, [])
-            raise RuntimeError("direct baseline selected unavailable DELEGATE_REASON")
+            raise RuntimeError("direct baseline selected unavailable Router advisory")
         raise RuntimeError("bounded_loop_exhaustion")
     except Exception as exc:
         return _failure_record(
@@ -114,18 +114,15 @@ async def _nooa_condition(name: str, *, with_workers: bool) -> dict[str, Any]:
     router = RouterClient(settings)
     agent = ConstrainedTypedValuationAgent(
         data,
-        reasoning_client=None,
+        reasoning_client=router if with_workers else None,
         llm=build_nooa_controller_llm(settings),
     )
     recorder = RawNooaTrace()
     if _capture_raw_enabled():
         recorder.attach(agent.event_manager)
-    bundle = WorkerBundle(router) if with_workers else None
     started = perf_counter()
     try:
-        report = await agent.investigate_constrained(
-            question=question, symbol="AAPL", evaluation_worker_bundle=bundle
-        )
+        report = await agent.investigate_constrained(question=question, symbol="AAPL")
         return _success_record(
             name,
             started,
@@ -134,7 +131,7 @@ async def _nooa_condition(name: str, *, with_workers: bool) -> dict[str, Any]:
             [],
             agent,
             recorder.events,
-            worker_calls=bundle.calls if bundle else [],
+            worker_calls=[item.model_dump(mode="json") for item in agent.advisory_results],
         )
     except Exception as exc:
         return _failure_record(
@@ -150,7 +147,7 @@ async def _nooa_condition(name: str, *, with_workers: bool) -> dict[str, Any]:
             type(exc).__name__,
             str(exc),
             raw_trace=recorder.events,
-            worker_calls=bundle.calls if bundle else [],
+            worker_calls=[item.model_dump(mode="json") for item in agent.advisory_results],
         )
     finally:
         await router.aclose()
@@ -227,6 +224,8 @@ def _trace_metrics(agent: ConstrainedTypedValuationAgent) -> dict[str, Any]:
         "dispatcher_actions_total": trace.dispatcher_actions_total,
         "dispatcher_failures": trace.dispatcher_failures,
         "r1_calls": trace.r1_calls,
+        "code_advisory_calls": trace.code_advisory_calls,
+        "chat_advisory_calls": trace.chat_advisory_calls,
         "scenario_calls": trace.scenario_calls,
         "recovery_decisions": trace.recovery_decisions,
         "finalization_attempts": trace.finalization_attempts,
