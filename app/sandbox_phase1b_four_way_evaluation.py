@@ -140,7 +140,11 @@ async def _nooa_condition(name: str, *, with_workers: bool) -> dict[str, Any]:
         return _failure_record(
             name,
             started,
-            [],
+            [
+                item["decision"]
+                for item in agent.phase1b_trace.trajectory
+                if item.get("decision") is not None
+            ],
             [],
             agent,
             type(exc).__name__,
@@ -177,6 +181,7 @@ def _success_record(
         "scenario_calls": agent.scenario_call_count,
         "dispatcher_failures": agent.phase1b_trace.dispatcher_failures,
         "bounded_loop_status": agent.phase1b_trace.failure_classification or "completed",
+        "metrics": _trace_metrics(agent),
         "report": report.model_dump(mode="json"),
     }
 
@@ -209,6 +214,24 @@ def _failure_record(
         "scenario_calls": agent.scenario_call_count,
         "dispatcher_failures": agent.phase1b_trace.dispatcher_failures,
         "bounded_loop_status": agent.phase1b_trace.failure_classification or "failed",
+        "metrics": _trace_metrics(agent),
+    }
+
+
+def _trace_metrics(agent: ConstrainedTypedValuationAgent) -> dict[str, Any]:
+    trace = agent.phase1b_trace
+    return {
+        "typed_decisions_total": trace.typed_decisions_total,
+        "typed_decisions_valid": trace.typed_decisions_valid,
+        "typed_decision_failures": trace.typed_decision_failures,
+        "dispatcher_actions_total": trace.dispatcher_actions_total,
+        "dispatcher_failures": trace.dispatcher_failures,
+        "r1_calls": trace.r1_calls,
+        "scenario_calls": trace.scenario_calls,
+        "recovery_decisions": trace.recovery_decisions,
+        "finalization_attempts": trace.finalization_attempts,
+        "typed_final_success": trace.typed_final_success,
+        "grounding_success": trace.grounding_success,
     }
 
 

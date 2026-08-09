@@ -8,7 +8,12 @@ from pydantic import ValidationError
 from app.agents.valuation_projection import project_compact_valuation
 from app.clients.errors import UpstreamProtocolError
 from app.contracts import NextActionDecision
-from app.evaluation.four_way import DirectStructuredClient, FrozenValuationClient, WorkerBundle
+from app.evaluation.four_way import (
+    DirectStructuredClient,
+    FrozenValuationClient,
+    WorkerBundle,
+    validate_public_synthetic_artifact,
+)
 
 
 @pytest.mark.asyncio
@@ -89,3 +94,11 @@ async def test_worker_bundle_calls_every_route_in_strict_order() -> None:
     assert reason is not None and reason.worker.ok
     assert [item["worker"] for item in advisories] == ["reason", "code", "chat"]
     assert advisories[1]["executed"] is False
+
+
+def test_checked_in_evaluation_artifact_is_public_and_synthetic() -> None:
+    artifact = json.loads(
+        Path("eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json").read_text()
+    )
+
+    validate_public_synthetic_artifact(artifact)

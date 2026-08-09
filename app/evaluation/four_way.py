@@ -29,6 +29,17 @@ from app.contracts import (
 )
 from app.tools import validate_code_draft
 
+_PRIVATE_TRACE_MARKERS = ("/Users/", "file://", "Bearer ", "sk-", "postgres://")
+
+
+def validate_public_synthetic_artifact(payload: dict[str, Any]) -> None:
+    """Reject obvious private paths, credentials, and non-synthetic case identifiers."""
+    rendered = json.dumps(payload, ensure_ascii=False, default=str)
+    if payload.get("case") != "synthetic-aapl-phase1b-v1":
+        raise ValueError("evaluation artifact must identify the frozen synthetic case")
+    if marker := next((item for item in _PRIVATE_TRACE_MARKERS if item in rendered), None):
+        raise ValueError(f"evaluation artifact contains prohibited marker: {marker}")
+
 
 @dataclass
 class FrozenValuationClient:
