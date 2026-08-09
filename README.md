@@ -7,9 +7,9 @@ A local-first AI research service that investigates a deterministic investment p
 Financial facts, portfolio accounting, FCFF/FCFE valuation, sensitivity analysis, and reverse DCF remain in the Java Investment Platform. This independent FastAPI service gives a bounded NOOA valuation specialist typed, read-only HTTP tools. The existing AI Router selects among local Ollama models; the agent service never embeds classifier rules or directly calls Ollama.
 
 ```text
-Java Investment Platform -> FastAPI typed adapters -> NOOA specialist -> AI Router -> local Ollama
-                                      ^
-                              deterministic evidence
+Java Investment Platform -> FastAPI typed adapters -> Ministral / NOOA controller
+                                      ^                         |
+                              deterministic evidence             +-> AI Router -> selected local worker
 ```
 
 ### Relationship to the companion repositories
@@ -27,7 +27,7 @@ Phase 0/1 provides a typed read-only integration layer, synthetic mock platform,
 
 ## Phase 1 evidence: seven model shapes
 
-**Phase 1 finding:** More agents or more models are not automatically better. On one frozen public synthetic AAPL case, the fastest grounded success was a direct typed Ministral dispatcher (32.6s). The NOOA + three-worker shape also produced a grounded report, but took 335.7s while R1 returned empty content and Coder violated its JSON contract. The result is evidence for bounded orchestration and evaluation, not a claim of multi-agent superiority.
+**Phase 1 finding:** More agents or more models are not automatically better. On one frozen public synthetic AAPL case, the fastest grounded success was a direct typed Ministral dispatcher (32.6s). The NOOA + three-worker shape also produced a grounded report, but took 335.7s while R1 returned empty content and Coder returned free-form Markdown under that experiment's then-strict JSON probe. The current worker boundary preserves non-empty raw advisory content for Controller review; it never executes it or treats it as evidence. The result is evidence for bounded orchestration and evaluation, not a claim of multi-agent superiority.
 
 The comparison uses a single question and no private data:
 

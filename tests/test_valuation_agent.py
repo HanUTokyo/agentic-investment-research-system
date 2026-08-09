@@ -8,7 +8,14 @@ from app.agents import ValuationAgent
 from app.agents.valuation_projection import project_compact_valuation
 from app.clients.ai_router import RoutedCompletion
 from app.clients.mock_stock_platform import MockStockPlatformClient
-from app.contracts import CodeDraft, CodeTask, ReasonTask, ValuationReport, ValuationSnapshot
+from app.contracts import (
+    CodeDraft,
+    CodeTask,
+    CodeTaskText,
+    ReasonTask,
+    ValuationReport,
+    ValuationSnapshot,
+)
 
 
 @pytest.mark.asyncio
@@ -48,7 +55,7 @@ async def test_valuation_agent_exposes_worker_as_draft_only_capability() -> None
 async def test_reason_worker_is_bounded_and_marked_untrusted() -> None:
     class ReasoningClient:
         async def complete(self, _messages, **kwargs):
-            assert kwargs["route_hint"] == "reason"
+            assert "route_hint" not in kwargs
             return RoutedCompletion(
                 content="Validate the terminal-growth assumption.",
                 route="reason",
@@ -66,6 +73,30 @@ async def test_reason_worker_is_bounded_and_marked_untrusted() -> None:
     assert first.worker.ok is True
     assert first.trusted_for_numerical_claims is False
     assert second.worker.error_type == "reason_worker_attempt_limit_exceeded"
+
+
+@pytest.mark.asyncio
+async def test_code_advisory_keeps_non_json_content_for_controller_review() -> None:
+    class Router:
+        async def complete(self, _messages, **kwargs):
+            assert "route_hint" not in kwargs
+            return RoutedCompletion(
+                content="```python\n# inspect Java evidence paths\n```",
+                route="code",
+                model="deepseek-coder:6.7b",
+                latency_ms=1.0,
+                raw={},
+            )
+
+    client = MockStockPlatformClient(Path("fixtures/stock_platform"))
+    agent = ValuationAgent(client, llm=MagicMock(), reasoning_client=Router())
+
+    result = await agent.delegate_code_advisory(CodeTaskText(prompt="Draft an approach."))
+
+    assert result.ok is True
+    assert result.route_hint == "auto"
+    assert result.content == "```python\n# inspect Java evidence paths\n```"
+    assert result.model == "deepseek-coder:6.7b"
 
 
 @pytest.mark.asyncio

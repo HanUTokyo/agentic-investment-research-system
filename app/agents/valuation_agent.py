@@ -20,8 +20,10 @@ from app.agents.valuation_projection import (
     project_trimmed_valuation,
 )
 from app.contracts import (
+    ChatTask,
     CodeDraft,
     CodeTask,
+    CodeTaskText,
     CompanySnapshot,
     FinancialHistory,
     ReasonResult,
@@ -78,7 +80,10 @@ class ValuationAgent(Agent):
         self.trace_id = str(uuid4())
         self.tool_calls: list[ToolCallSummary] = []
         self.reason_results: list[ReasonResult] = []
+        self.advisory_results: list[WorkerResult] = []
         self._reason_calls = 0
+        self._code_advisory_calls = 0
+        self._chat_advisory_calls = 0
         self._scenario_calls = 0
         self._initial_valuation_loaded = False
 
@@ -188,51 +193,85 @@ class ValuationAgent(Agent):
         )
 
     async def delegate_reason(self, task: ReasonTask) -> ReasonResult:
-        """Ask R1 once for an untrusted, non-numerical evidence-gap proposal."""
-        self._reason_calls += 1
-        if self._reason_calls > 1:
-            result = ReasonResult(
-                worker=WorkerResult(
-                    ok=False,
-                    http_success=False,
-                    content_empty=True,
-                    error_type="reason_worker_attempt_limit_exceeded",
-                    route_hint="reason",
-                )
+        """Request one untrusted evidence-gap advisory through Router auto-routing."""
+        worker = await self._delegate_advisory(
+            capability="reason",
+            prompt=task.prompt,
+            system=(
+                "You are a bounded valuation evidence-gap reviewer. "
+                "Return plain text only. Do not calculate, estimate, or state "
+                "financial numbers. Suggest at most one assumption or evidence "
+                "gap worth validating with a deterministic valuation system."
+            ),
+        )
+        result = ReasonResult(worker=worker, proposal=worker.content)
+        self.reason_results.append(result)
+        return result
+
+    async def delegate_code_advisory(self, task: CodeTaskText) -> WorkerResult:
+        """Request a raw, unexecuted implementation advisory through Router auto-routing."""
+        return await self._delegate_advisory(
+            capability="code",
+            prompt=task.prompt,
+            system=(
+                "Provide a concise implementation or data-lineage draft. "
+                "Plain text or code is allowed. It is advisory only: do not calculate "
+                "financial values, call tools, access files, or claim that code was run."
+            ),
+        )
+
+    async def delegate_chat_advisory(self, task: ChatTask) -> WorkerResult:
+        """Request a raw, non-numerical communication advisory through Router auto-routing."""
+        return await self._delegate_advisory(
+            capability="chat",
+            prompt=task.prompt,
+            system=(
+                "Provide one concise qualitative summary. Do not calculate or quote "
+                "financial numbers, call tools, or recommend a trade."
+            ),
+        )
+
+    async def _delegate_advisory(
+        self, *, capability: str, prompt: str, system: str
+    ) -> WorkerResult:
+        """Transport raw worker content to the Controller without a worker JSON contract.
+
+        The capability names shape the task, not Router model selection.  Omitting
+        ``route_hint`` deliberately preserves the Router's rule/classifier policy.
+        """
+        counter_name = (
+            f"_{capability}_calls" if capability == "reason" else f"_{capability}_advisory_calls"
+        )
+        calls = getattr(self, counter_name) + 1
+        setattr(self, counter_name, calls)
+        if calls > 1:
+            result = WorkerResult(
+                ok=False,
+                http_success=False,
+                content_empty=True,
+                error_type=f"{capability}_worker_attempt_limit_exceeded",
             )
-            self.reason_results.append(result)
+            self.advisory_results.append(result)
             return result
         if self._reasoning_client is None:
-            result = ReasonResult(
-                worker=WorkerResult(
-                    ok=False,
-                    http_success=False,
-                    content_empty=True,
-                    error_type="reason_worker_not_configured",
-                    route_hint="reason",
-                )
+            result = WorkerResult(
+                ok=False,
+                http_success=False,
+                content_empty=True,
+                error_type=f"{capability}_worker_not_configured",
             )
-            self.reason_results.append(result)
+            self.advisory_results.append(result)
             return result
 
         started = perf_counter()
         try:
             completion = await self._reasoning_client.complete(
                 [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a bounded valuation evidence-gap reviewer. "
-                            "Return plain text only. Do not calculate, estimate, or state "
-                            "financial numbers. Suggest at most one assumption or evidence "
-                            "gap worth validating with a deterministic valuation system."
-                        ),
-                    },
-                    {"role": "user", "content": task.prompt},
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0,
                 max_tokens=512,
-                route_hint="reason",
             )
             content = str(completion.content).strip()
             worker = WorkerResult(
@@ -242,7 +281,7 @@ class ValuationAgent(Agent):
                 content=content or None,
                 error_type=None if content else "empty_content",
                 latency_ms=completion.latency_ms,
-                route_hint="reason",
+                route_hint="auto",
                 model=completion.model,
             )
         except Exception as exc:
@@ -252,11 +291,9 @@ class ValuationAgent(Agent):
                 content_empty=True,
                 error_type=type(exc).__name__,
                 latency_ms=(perf_counter() - started) * 1000,
-                route_hint="reason",
             )
-        result = ReasonResult(worker=worker, proposal=worker.content)
-        self.reason_results.append(result)
-        return result
+        self.advisory_results.append(worker)
+        return worker
 
     async def solve_market_implied_assumptions(self, symbol: str) -> dict[str, Any] | None:
         """Retrieve Java-engine reverse-DCF market-implied assumptions."""

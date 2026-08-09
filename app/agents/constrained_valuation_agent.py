@@ -21,6 +21,8 @@ from app.agents.valuation_agent import ValuationAgent
 from app.agents.valuation_grounding import unsupported_numerical_claim_count
 from app.agents.valuation_projection import CompactScenarioObservation, CompactValuationObservation
 from app.contracts import (
+    ChatTask,
+    CodeTaskText,
     Evidence,
     NextActionDecision,
     ReasonResult,
@@ -29,6 +31,7 @@ from app.contracts import (
     ValuationReport,
     ValuationScenario,
     ValuationSynthesis,
+    WorkerResult,
 )
 
 DecisionFailure = Literal[
@@ -57,6 +60,8 @@ class Phase1BTrace:
     dispatcher_actions_total: int = 0
     dispatcher_failures: int = 0
     r1_calls: int = 0
+    code_advisory_calls: int = 0
+    chat_advisory_calls: int = 0
     scenario_calls: int = 0
     recovery_decisions: int = 0
     finalization_attempts: int = 0
@@ -88,14 +93,15 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
 
     @strategy(_PREDICT)
     async def decide_next_action(self, context: str) -> NextActionDecision:
-        """Choose exactly one action from RUN_SCENARIO, DELEGATE_REASON, FINALIZE.
+        """Choose exactly one legal action.
 
         Initial Java valuation evidence has already been acquired deterministically.
         You cannot call tools or write Python.  Select RUN_SCENARIO only when the
         compact observation identifies a material uncertainty not already covered
-        by its published scenarios.  Select DELEGATE_REASON only for one bounded,
-        non-numerical evidence-gap proposal.  Select FINALIZE when the existing
-        Java evidence is enough.  Never invent financial numbers or tool names.
+        by its published scenarios.  The three ``DELEGATE_*`` choices request a
+        bounded untrusted advisory. They are sent to Router without a route hint,
+        so Router selects the actual local model. Select FINALIZE when existing
+        Java evidence is enough. Never invent financial numbers or tool names.
 
         {context}
         """
@@ -193,8 +199,9 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                 latency_ms=(perf_counter() - dispatched_at) * 1000,
             )
         additional_scenario: CompactScenarioObservation | None = None
-        # Three legal decisions: optional worker, optional scenario, then final.
-        for _iteration in range(1, 4):
+        # Each bounded advisory and the one Java scenario may be selected once,
+        # followed by FINALIZE. There is no parallel execution.
+        for _iteration in range(1, 6):
             state = self._state(additional_scenario, reason)
             decision_started = perf_counter()
             trace.typed_decisions_total += 1
@@ -254,6 +261,15 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                 if not reason.worker.ok:
                     trace.failure_classification = "SPECIALIST_OUTPUT"
                 observation_type = "ReasonResult"
+            elif decision.action in {"DELEGATE_CODE", "DELEGATE_CHAT"}:
+                if not isinstance(result, WorkerResult):
+                    raise RuntimeError("dispatcher returned an invalid advisory result")
+                if decision.action == "DELEGATE_CODE":
+                    trace.code_advisory_calls += 1
+                else:
+                    trace.chat_advisory_calls += 1
+                status = "success" if result.ok else result.error_type
+                observation_type = f"{decision.action.removeprefix('DELEGATE_').title()}Advisory"
             else:
                 if not isinstance(result, CompactScenarioObservation):
                     raise RuntimeError("dispatcher returned a reason result for RUN_SCENARIO")
@@ -282,7 +298,7 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
         compact: CompactValuationObservation,
         reason: ReasonResult | None,
         scenario: CompactScenarioObservation | None,
-    ) -> ReasonResult | CompactScenarioObservation:
+    ) -> ReasonResult | CompactScenarioObservation | WorkerResult:
         """Execute only the explicit legal action selected by the typed model."""
 
         if decision.action == "DELEGATE_REASON":
@@ -294,6 +310,30 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                         f"Question: {symbol} — {decision.reason}\n"
                         "Review this Java-backed compact valuation without calculating or quoting numbers: "
                         f"model={compact.selected_model}; warnings={compact.material_warnings}."
+                    )
+                )
+            )
+        if decision.action == "DELEGATE_CODE":
+            if self._code_advisory_calls >= 1:
+                raise DispatcherError("DELEGATE_CODE is allowed at most once")
+            return await self.delegate_code_advisory(
+                CodeTaskText(
+                    prompt=(
+                        f"Question: {symbol} — {decision.reason}\n"
+                        "Draft a non-executable approach for checking Java valuation evidence "
+                        "lineage. Do not calculate or quote financial values."
+                    )
+                )
+            )
+        if decision.action == "DELEGATE_CHAT":
+            if self._chat_advisory_calls >= 1:
+                raise DispatcherError("DELEGATE_CHAT is allowed at most once")
+            return await self.delegate_chat_advisory(
+                ChatTask(
+                    prompt=(
+                        f"Question: {symbol} — {decision.reason}\n"
+                        "Summarize one Java valuation warning qualitatively. Do not calculate "
+                        "or quote financial values."
                     )
                 )
             )
@@ -515,8 +555,15 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                 },
                 "limits": {
                     "r1_calls_remaining": 0 if reason else 1,
+                    "code_advisory_calls_remaining": 0 if self._code_advisory_calls else 1,
+                    "chat_advisory_calls_remaining": 0 if self._chat_advisory_calls else 1,
                     "scenario_calls_remaining": 0 if scenario else 1,
                 },
+                # Raw worker text remains visible to the Controller, but is never
+                # a report field or numerical evidence source.
+                "untrusted_router_advisories": [
+                    item.model_dump(mode="json") for item in self.advisory_results
+                ],
                 "evaluation_worker_advisories": self._evaluation_worker_advisories,
             }
         )
@@ -536,6 +583,9 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                 "untrusted_reason_proposal": reason.proposal
                 if reason and reason.worker.ok
                 else None,
+                "untrusted_router_advisories": [
+                    item.model_dump(mode="json") for item in self.advisory_results
+                ],
                 "selected_model_required_verbatim": compact.selected_model,
                 "evaluation_worker_advisories": self._evaluation_worker_advisories,
             }

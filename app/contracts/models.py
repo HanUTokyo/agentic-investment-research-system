@@ -143,7 +143,10 @@ class WorkerResult(ContractModel):
     content: str | None = None
     error_type: str | None = None
     latency_ms: float | None = None
-    route_hint: Literal["reason", "code", "chat"]
+    # ``auto`` is the production default: the Router's existing rule +
+    # classifier policy selects the model.  The named values remain only for
+    # historical compatibility probes that explicitly tested route hints.
+    route_hint: Literal["auto", "reason", "code", "chat"] = "auto"
     model: str | None = None
 
 
@@ -158,7 +161,13 @@ class ReasonResult(ContractModel):
 class NextActionDecision(ContractModel):
     """A deliberately small controller decision for the Phase 1B dispatcher."""
 
-    action: Literal["RUN_SCENARIO", "DELEGATE_REASON", "FINALIZE"]
+    action: Literal[
+        "RUN_SCENARIO",
+        "DELEGATE_REASON",
+        "DELEGATE_CODE",
+        "DELEGATE_CHAT",
+        "FINALIZE",
+    ]
     reason: str = Field(min_length=1, max_length=600)
 
 
