@@ -124,6 +124,34 @@ class CodeDraftTrace(ContractModel):
     iteration: int | None = None
 
 
+class ReasonTask(ContractModel):
+    prompt: str = Field(min_length=1, max_length=1_000)
+
+
+class CodeTaskText(ContractModel):
+    prompt: str = Field(min_length=1, max_length=1_000)
+
+
+class ChatTask(ContractModel):
+    prompt: str = Field(min_length=1, max_length=1_000)
+
+
+class WorkerResult(ContractModel):
+    ok: bool
+    content: str | None = None
+    error_type: str | None = None
+    latency_ms: float | None = None
+    route_hint: Literal["reason", "code", "chat"]
+    model: str | None = None
+
+
+class DelegationResult(ContractModel):
+    reason_summary: str = Field(min_length=1)
+    code_answer: str = Field(min_length=1)
+    chat_summary: str = Field(min_length=1)
+    final_answer: str = Field(min_length=1)
+
+
 class ValuationReport(ContractModel):
     symbol: str
     conclusion: str

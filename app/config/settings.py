@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     ai_router_logical_model: str = Field(
         default="local-router", validation_alias="AI_ROUTER_LOGICAL_MODEL"
     )
+    ministral_controller_base_url: AnyHttpUrl = Field(
+        default=cast(AnyHttpUrl, "http://127.0.0.1:11434/v1"),
+        validation_alias="MINISTRAL_CONTROLLER_BASE_URL",
+    )
+    ministral_controller_model: str = Field(
+        default="ministral-3:8b", validation_alias="MINISTRAL_CONTROLLER_MODEL"
+    )
 
 
 @lru_cache

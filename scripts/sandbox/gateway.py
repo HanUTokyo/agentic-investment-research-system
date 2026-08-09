@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ALLOWED = {
     "router-proxy": {("GET", "/health/ready"), ("POST", "/v1/chat/completions")},
+    "controller-proxy": {("POST", "/v1/chat/completions")},
     "stock-proxy": {
         ("GET", "/v3/api-docs"),
         ("GET", "/api/portfolio/export/v2"),
@@ -37,12 +38,12 @@ class Gateway(BaseHTTPRequestHandler):
             self._log_request(alias, path, None, 403)
             self.send_error(403, "sandbox gateway policy denied request")
             return
-        host = (
-            os.environ.get("SANDBOX_ROUTER_HOST", "host.docker.internal")
-            if alias == "router-proxy"
-            else os.environ.get("SANDBOX_STOCK_HOST", "host.docker.internal")
-        )
-        port = 8000 if alias == "router-proxy" else 8080
+        if alias == "router-proxy":
+            host, port = os.environ.get("SANDBOX_ROUTER_HOST", "host.docker.internal"), 8000
+        elif alias == "controller-proxy":
+            host, port = os.environ.get("SANDBOX_CONTROLLER_HOST", "host.docker.internal"), 11434
+        else:
+            host, port = os.environ.get("SANDBOX_STOCK_HOST", "host.docker.internal"), 8080
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         # R1's local reasoning can legitimately take longer than the agent's
         # default request budget.  This gateway must not sever an otherwise

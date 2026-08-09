@@ -1,0 +1,79 @@
+"""Synthetic-only serial NOOA controller experiment; no financial tools."""
+
+from __future__ import annotations
+
+from time import perf_counter
+from typing import Any, Literal
+
+from nooa import Agent
+from nooa.config import CodeActConfig
+from nooa.decorators import strategy
+from nooa.strategies import CodeActStrategy
+
+from app.clients import RouterClient
+from app.contracts import ChatTask, CodeTaskText, DelegationResult, ReasonTask, WorkerResult
+
+
+class SerialDelegationController(Agent):
+    """Ministral controller. Its only capabilities are bounded Router workers."""
+
+    def __init__(self, router: RouterClient, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._router = router
+        self.worker_trace: list[WorkerResult] = []
+
+    async def delegate_reason(self, task: ReasonTask) -> WorkerResult:
+        return await self._delegate("reason", task.prompt)
+
+    async def delegate_code(self, task: CodeTaskText) -> WorkerResult:
+        return await self._delegate("code", task.prompt)
+
+    async def delegate_chat(self, task: ChatTask) -> WorkerResult:
+        return await self._delegate("chat", task.prompt)
+
+    async def _delegate(
+        self, route_hint: Literal["reason", "code", "chat"], prompt: str
+    ) -> WorkerResult:
+        started = perf_counter()
+        try:
+            completion = await self._router.complete(
+                [
+                    {"role": "system", "content": "Return plain text only. Do not call tools."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+                max_tokens=256,
+                route_hint=route_hint,
+            )
+            content = completion.content.strip()
+            result = WorkerResult(
+                ok=bool(content),
+                content=content or None,
+                error_type=None if content else "empty_content",
+                latency_ms=completion.latency_ms,
+                route_hint=route_hint,
+                model=completion.model,
+            )
+        except Exception as exc:  # Worker failure is typed evidence for controller.
+            result = WorkerResult(
+                ok=False,
+                error_type=type(exc).__name__,
+                latency_ms=(perf_counter() - started) * 1000,
+                route_hint=route_hint,
+            )
+        self.worker_trace.append(result)
+        return result
+
+    @strategy(
+        CodeActStrategy(config=CodeActConfig(max_iterations=6, max_retries=1, max_tokens=1024))
+    )
+    async def solve(self, task: str) -> DelegationResult:
+        """Solve the synthetic arithmetic task with strictly serial worker delegation.
+
+        In one execute_python cell, call delegate_reason first and await it. Only
+        after it completes call delegate_code, then delegate_chat. If any returned
+        WorkerResult has ok=False, raise RuntimeError with that worker's error_type.
+        Otherwise call return_result(DelegationResult(...)) from Python. Do not
+        write prose or manually return a result outside native return_result.
+        """
+        ...

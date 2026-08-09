@@ -35,10 +35,17 @@ def build_nooa_router_llm(settings: Settings, *, route_hint: RouteHint | None = 
 
 
 def build_nooa_controller_llm(settings: Settings) -> Any:
-    """Build the tool-capable NOOA controller, never the Router CODE model.
+    """Build the direct, tool-capable Ministral NOOA controller.
 
-    Router configuration maps requests carrying native tools to its configured
-    tool model (Gemma in the full local profile).  The chat hint avoids asking
-    the classifier to infer a known controller responsibility.
+    The Controller is deliberately separate from Router worker delegation. In
+    the Docker experiment it reaches Ollama only through controller-proxy.
     """
-    return build_nooa_router_llm(settings, route_hint="chat")
+    from nooa.unifiedllm import get_llm_client
+    from nooa.unifiedllm.retry_config import RetryConfig
+
+    return get_llm_client(
+        f"openai/{settings.ministral_controller_model}",
+        api_base=str(settings.ministral_controller_base_url).rstrip("/"),
+        api_key="local-ollama-no-key",
+        retry_config=RetryConfig(max_retries=0),
+    )
