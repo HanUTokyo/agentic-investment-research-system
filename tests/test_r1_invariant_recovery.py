@@ -3,10 +3,12 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from nooa.strategy_validation import InvariantError
 
 from app.clients.ai_router import RoutedCompletion
 from app.clients.mock_stock_platform import MockStockPlatformClient
 from app.experiments.invariant_recovery_probe import (
+    FaultInjectedRuntimeRecoveryAgent,
     R1AssistedInvariantRecoveryAgent,
     RuntimeForcedR1RecoveryAgent,
 )
@@ -56,6 +58,7 @@ async def test_recovery_reason_returns_strict_typed_plan_once() -> None:
     plan = await agent.delegate_recovery_reason()
 
     assert plan.required_tool == "get_probe_valid_report"
+    assert agent.r1_http_success is True
     assert agent.r1_content_empty is False
     assert agent.r1_plan_status == "VALID_PLAN"
     assert router.calls == 1
@@ -97,6 +100,7 @@ async def test_recovery_reason_keeps_content_empty_unknown_on_transport_failure(
         await agent.delegate_recovery_reason()
 
     assert agent.r1_content_empty is None
+    assert agent.r1_http_success is False
     assert agent.r1_plan_status == "NO_COMPLETION"
 
 
@@ -146,3 +150,25 @@ async def test_runtime_preserves_r1_transport_failure_as_observation() -> None:
     assert agent.runtime_recovery_triggered is True
     assert agent.recovery_plan is None
     assert "RUNTIME_RECOVERY_FAILURE" in agent.runtime_recovery_observation()
+
+
+@pytest.mark.asyncio
+async def test_fault_injection_rejects_only_first_otherwise_valid_report() -> None:
+    agent = FaultInjectedRuntimeRecoveryAgent(
+        MockStockPlatformClient(Path("fixtures/stock_platform")),
+        recovery_client=_RecoveryRouter("{}"),
+        llm=MagicMock(),
+    )
+    first = await agent.get_probe_valid_report("demo")
+
+    with pytest.raises(InvariantError, match="probe-injected"):
+        agent.validate_final_report(first)
+
+    assert agent.fault_injected is True
+    assert agent.last_invariant_feedback is not None
+    assert agent.post_fault_corrective_actions == []
+
+    second = await agent.get_probe_valid_report("demo")
+    agent.validate_final_report(second)
+
+    assert agent.post_fault_corrective_actions == ["requested_valid_java_backed_report_candidate"]

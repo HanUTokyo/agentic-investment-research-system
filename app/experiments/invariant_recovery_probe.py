@@ -200,6 +200,7 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
         self._recovery_client = recovery_client
         self.recovery_plan: RecoveryPlan | None = None
         self.r1_invoked = False
+        self.r1_http_success: bool | None = None
         self.r1_content_empty: bool | None = None
         self.r1_latency_ms: float | None = None
         self.r1_error_type: str | None = None
@@ -231,6 +232,7 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
                 max_tokens=1024,
                 route_hint="reason",
             )
+            self.r1_http_success = True
             self.r1_latency_ms = completion.latency_ms
             content = completion.content.strip()
             self.r1_content_empty = not bool(content)
@@ -246,6 +248,8 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
             return self.recovery_plan
         except Exception as exc:
             self.r1_error_type = type(exc).__name__
+            if self.r1_http_success is None:
+                self.r1_http_success = False
             if self.r1_plan_status is None:
                 self.r1_plan_status = "NO_COMPLETION"
             self.r1_latency_ms = self.r1_latency_ms or (perf_counter() - started) * 1000
@@ -340,5 +344,67 @@ class RuntimeForcedR1RecoveryAgent(R1AssistedInvariantRecoveryAgent):
         valid_candidate = await self.get_probe_valid_report(symbol), followed by
         return_result(valid_candidate) from execute_python. Do not edit candidates,
         construct reports, call scenarios, or emit prose.
+        """
+        ...
+
+
+class FaultInjectedRuntimeRecoveryAgent(RuntimeForcedR1RecoveryAgent):
+    """Probe-only recovery agent that rejects the first valid finalization once."""
+
+    def __init__(self, *args: Any, recovery_client: RecoveryPlanningClient, **kwargs: Any) -> None:
+        super().__init__(*args, recovery_client=recovery_client, **kwargs)
+        self.fault_injected = False
+        self._corrective_action_count_at_fault: int | None = None
+
+    @property
+    def post_fault_corrective_actions(self) -> list[str]:
+        """Controller-selected corrective actions requested after the injected fault."""
+        if self._corrective_action_count_at_fault is None:
+            return []
+        return self.corrective_actions[self._corrective_action_count_at_fault :]
+
+    def validate_final_report(self, report: ValuationReport) -> None:
+        """Inject one synthetic invariant only after ordinary grounding passes.
+
+        This is intentionally isolated to this probe subclass. It neither edits
+        the report nor changes any Java-backed financial evidence.
+        """
+        try:
+            super().validate_final_report(report)
+            if not self.fault_injected:
+                self.fault_injected = True
+                self._corrective_action_count_at_fault = len(self.corrective_actions)
+                raise InvariantError(
+                    "ERROR_TYPE: INVALID_EVIDENCE_PATH\n"
+                    "FIELD: scenario intrinsic_value_per_share evidence\n"
+                    "INVALID_VALUE: probe-injected first valid finalization\n"
+                    "EXPECTED_SOURCE: get_probe_valid_report(symbol) Java-backed evidence\n"
+                    "REQUIRED_ACTION: call get_probe_valid_report and retry finalization"
+                )
+        except InvariantError as exc:
+            self.last_invariant_feedback = str(exc)
+            self.invariant_feedback.append(self.last_invariant_feedback.splitlines()[0])
+            raise
+
+    @strategy(
+        RuntimeForcedRecoveryStrategy(
+            config=CodeActConfig(
+                max_iterations=6,
+                max_retries=3,
+                max_tokens=1024,
+                postconditions=(_probe_postcondition,),
+            )
+        )
+    )
+    async def recover_with_injected_fault(self, symbol: str) -> ValuationReport:
+        """Exercise one forced recovery from a probe-only invalid-evidence fault.
+
+        First obtain a Java-backed valid candidate with
+        await self.get_probe_valid_report(symbol), then native return_result.
+        The first otherwise-valid finalization is deterministically rejected by
+        this probe only. Runtime injects exactly one R1 RecoveryPlan. After it,
+        independently call await self.get_probe_valid_report(symbol) again and
+        native return_result the returned candidate. Do not call R1, construct,
+        edit, repair, or parse a report; do not call scenarios or other workers.
         """
         ...
