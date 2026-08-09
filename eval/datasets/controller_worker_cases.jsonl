@@ -1,0 +1,4 @@
+{"id":"simple-warning","question":"Retrieve the current AAPL valuation and explain the main valuation warning.","symbol":"AAPL","worker_expected":false}
+{"id":"moderate-compare","question":"Compare base and bear valuation results and identify which output changes most.","symbol":"AAPL","worker_expected":false}
+{"id":"code-rank-scenarios","question":"Compare multiple valuation scenarios and programmatically rank the assumptions by their effect on intrinsic value.","symbol":"AAPL","worker_expected":true}
+{"id":"multi-step-gap","question":"Determine whether the current market price can be reconciled with available scenarios; if not, identify the assumption gap and return a structured report.","symbol":"AAPL","worker_expected":false}

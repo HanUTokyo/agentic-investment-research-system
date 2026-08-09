@@ -8,6 +8,8 @@ from nooa.decorators import strategy
 from nooa.strategies import CodeActStrategy
 
 from app.contracts import (
+    CodeDraft,
+    CodeTask,
     CompanySnapshot,
     FinancialHistory,
     ValuationEvaluation,
@@ -15,6 +17,7 @@ from app.contracts import (
     ValuationSnapshot,
 )
 from app.contracts.models import ToolCallSummary
+from app.workers import CodeWorker
 
 
 class ValuationDataClient(Protocol):
@@ -35,9 +38,16 @@ class ValuationAgent(Agent):
     capability other than the provided tools.
     """
 
-    def __init__(self, data_client: ValuationDataClient, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        data_client: ValuationDataClient,
+        *,
+        code_worker: CodeWorker | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self._data_client = data_client
+        self._code_worker = code_worker
         self.trace_id = str(uuid4())
         self.tool_calls: list[ToolCallSummary] = []
 
@@ -75,6 +85,20 @@ class ValuationAgent(Agent):
         return await self._call(
             "solve_market_implied_assumptions",
             self._data_client.solve_market_implied_assumptions(symbol),
+        )
+
+    async def draft_python(self, task: CodeTask) -> CodeDraft:
+        """Ask the bounded code worker for a draft; this method never executes it.
+
+        The controller may decide to pass a validated draft to NOOA's native
+        execute_python tool.  Coder is therefore a capability, not a protocol
+        owner or autonomous financial analyst.
+        """
+        if self._code_worker is None:
+            raise RuntimeError("code worker is not configured for this valuation agent")
+        return await self._call(
+            "draft_python",
+            self._code_worker.draft(task, research_id=self.trace_id),
         )
 
     async def _call(self, name: str, operation: Any) -> Any:

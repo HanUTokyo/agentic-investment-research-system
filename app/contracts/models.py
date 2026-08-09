@@ -84,6 +84,46 @@ class ToolCallSummary(ContractModel):
     duration_ms: float | None = None
 
 
+class MethodSpec(ContractModel):
+    """A bounded method signature visible to the code-generation worker."""
+
+    name: str
+    signature: str
+    description: str
+
+
+class CodeTask(ContractModel):
+    """A small, non-financial computation delegated to the code worker."""
+
+    objective: str
+    available_methods: list[MethodSpec] = Field(default_factory=list)
+    known_variables: dict[str, str] = Field(default_factory=dict)
+    constraints: list[str] = Field(default_factory=list)
+    expected_result: str
+
+
+class CodeDraft(ContractModel):
+    """Untrusted code: it is validated before NOOA may execute it."""
+
+    code: str = Field(min_length=1, max_length=4_000)
+    explanation: str | None = Field(default=None, max_length=1_000)
+    assumptions: list[str] = Field(default_factory=list, max_length=10)
+
+
+class CodeDraftTrace(ContractModel):
+    research_id: str
+    agent: str = "valuation"
+    stage: str = "code_worker"
+    worker_invoked: bool = True
+    router_route: str = "code"
+    model: str | None = None
+    latency_ms: float | None = None
+    code_length: int | None = None
+    validation_status: Literal["accepted", "rejected"]
+    execution_status: Literal["not_executed", "executed", "failed"] = "not_executed"
+    iteration: int | None = None
+
+
 class ValuationReport(ContractModel):
     symbol: str
     conclusion: str

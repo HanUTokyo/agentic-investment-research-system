@@ -32,3 +32,13 @@ def build_nooa_router_llm(settings: Settings, *, route_hint: RouteHint | None = 
         f"openai/{settings.ai_router_logical_model}",
         **overrides,
     )
+
+
+def build_nooa_controller_llm(settings: Settings) -> Any:
+    """Build the tool-capable NOOA controller, never the Router CODE model.
+
+    Router configuration maps requests carrying native tools to its configured
+    tool model (Gemma in the full local profile).  The chat hint avoids asking
+    the classifier to infer a known controller responsibility.
+    """
+    return build_nooa_router_llm(settings, route_hint="chat")
