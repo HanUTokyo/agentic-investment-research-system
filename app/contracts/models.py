@@ -155,6 +155,16 @@ class ReasonResult(ContractModel):
     trusted_for_numerical_claims: bool = False
 
 
+class RecoveryPlan(ContractModel):
+    """Bounded R1 proposal for a Controller-owned invariant recovery action."""
+
+    error_type: str = Field(min_length=1)
+    diagnosis: str = Field(min_length=1)
+    recommended_action: str = Field(min_length=1)
+    required_tool: str | None = None
+    expected_evidence: str | None = None
+
+
 class DelegationResult(ContractModel):
     reason_summary: str = Field(min_length=1)
     code_answer: str = Field(min_length=1)

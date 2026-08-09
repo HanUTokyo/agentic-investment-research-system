@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
-from typing import Any, Literal
+from time import perf_counter
+from typing import Any, Literal, Protocol
 
 from nooa.config import CodeActConfig
 from nooa.decorators import strategy
@@ -11,7 +13,7 @@ from nooa.strategies import CodeActStrategy
 from nooa.strategy_validation import InvariantError
 
 from app.agents.valuation_agent import ValuationAgent
-from app.contracts import Evidence, Uncertainty, ValuationReport, ValuationScenario
+from app.contracts import Evidence, RecoveryPlan, Uncertainty, ValuationReport, ValuationScenario
 
 ProbeCase = Literal[
     "missing_initial_evidence",
@@ -34,12 +36,14 @@ class InvariantRecoveryValuationAgent(ValuationAgent):
         self.corrective_actions: list[str] = []
         self.invariant_feedback: list[str] = []
         self._probe_observation = None
+        self.last_invariant_feedback: str | None = None
 
     def validate_final_report(self, report: ValuationReport) -> None:
         try:
             super().validate_final_report(report)
         except InvariantError as exc:
-            self.invariant_feedback.append(str(exc).splitlines()[0])
+            self.last_invariant_feedback = str(exc)
+            self.invariant_feedback.append(self.last_invariant_feedback.splitlines()[0])
             raise
 
     async def get_probe_invalid_report(self, symbol: str) -> ValuationReport:
@@ -148,5 +152,85 @@ class InvariantRecoveryValuationAgent(ValuationAgent):
         return_result(candidate). After the deterministic error observation, call
         get_probe_valid_report(symbol) and call return_result(valid_candidate).
         Do not edit, parse, or repair either candidate. Do not emit prose.
+        """
+        ...
+
+
+class RecoveryPlanningClient(Protocol):
+    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Any: ...
+
+
+class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
+    """Experimental Controller: R1 may plan recovery, never execute it."""
+
+    def __init__(self, *args: Any, recovery_client: RecoveryPlanningClient, **kwargs: Any) -> None:
+        super().__init__(*args, probe_case="invalid_evidence_path", **kwargs)
+        self._recovery_client = recovery_client
+        self.recovery_plan: RecoveryPlan | None = None
+        self.r1_content_empty: bool | None = None
+        self.r1_latency_ms: float | None = None
+        self.r1_error_type: str | None = None
+
+    async def delegate_recovery_reason(self) -> RecoveryPlan:
+        """Ask R1 once to plan recovery from the latest invariant feedback."""
+        if self.recovery_plan is not None or self.r1_error_type is not None:
+            raise RuntimeError("recovery reason worker may be called only once")
+        if not self.last_invariant_feedback:
+            raise RuntimeError("no invariant feedback is available for recovery planning")
+        started = perf_counter()
+        try:
+            completion = await self._recovery_client.complete(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Return exactly one JSON object matching RecoveryPlan. You only plan; "
+                            "do not calculate values, write a report, call tools, or use NOOA protocol. "
+                            "For INVALID_EVIDENCE_PATH, recommend required_tool "
+                            "get_probe_valid_report and explain that its Java-backed evidence path is required."
+                        ),
+                    },
+                    {"role": "user", "content": self.last_invariant_feedback},
+                ],
+                temperature=0,
+                max_tokens=384,
+                route_hint="reason",
+            )
+            self.r1_latency_ms = completion.latency_ms
+            content = completion.content.strip()
+            self.r1_content_empty = not bool(content)
+            if not content:
+                raise ValueError("R1 returned empty content")
+            self.recovery_plan = RecoveryPlan.model_validate(json.loads(content))
+            return self.recovery_plan
+        except Exception as exc:
+            self.r1_error_type = type(exc).__name__
+            if self.r1_content_empty is None:
+                self.r1_content_empty = True
+            self.r1_latency_ms = self.r1_latency_ms or (perf_counter() - started) * 1000
+            raise RuntimeError(f"recovery reason worker failed: {self.r1_error_type}") from exc
+
+    @strategy(
+        CodeActStrategy(
+            config=CodeActConfig(
+                max_iterations=6,
+                max_retries=2,
+                max_tokens=1024,
+                postconditions=(_probe_postcondition,),
+            )
+        )
+    )
+    async def recover_with_r1(self, symbol: str) -> ValuationReport:
+        """Recover INVALID_EVIDENCE_PATH through R1 planning and Controller tool use.
+
+        First call execute_python, obtain invalid_candidate via
+        get_probe_invalid_report(symbol), then call return_result(invalid_candidate)
+        to receive deterministic INVALID_EVIDENCE_PATH feedback. Only after that
+        feedback, call delegate_recovery_reason() exactly once. If the returned
+        RecoveryPlan.required_tool is not get_probe_valid_report, raise RuntimeError.
+        Otherwise call get_probe_valid_report(symbol) yourself and native
+        return_result(valid_candidate). R1 only proposes; it does not submit,
+        modify, or calculate any report. Do not emit prose, call scenarios, or
+        call any other worker.
         """
         ...
