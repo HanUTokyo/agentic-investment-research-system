@@ -17,4 +17,5 @@ exec docker run --rm \
   --env AI_ROUTER_BASE_URL=http://router-proxy:8080 \
   --env AGENT_HTTP_TIMEOUT_SECONDS="${AGENT_HTTP_TIMEOUT_SECONDS:-300}" \
   --env TYPED_RETURN_RUNS_PER_LEVEL="${TYPED_RETURN_RUNS_PER_LEVEL:-20}" \
+  --env TYPED_RETURN_OUTPUT="${TYPED_RETURN_OUTPUT:-/tmp/nooa-typed-return-gemma.jsonl}" \
   agentic-investment-research-sandbox "$@"

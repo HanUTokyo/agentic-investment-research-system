@@ -45,6 +45,7 @@ class NestedEvidenceReport(ValuationReportLite):
 @dataclass
 class ReturnTrace:
     level: str
+    completed: bool = False
     native_return_called: bool = False
     malformed_return_arguments: bool = False
     schema_validation_failed: bool = False
@@ -129,6 +130,10 @@ async def run_level(agent: TypedReturnExperimentAgent, level: str) -> ReturnTrac
     started = perf_counter()
     try:
         await getattr(agent, LEVEL_METHODS[level])("AAPL")
+        # NOOA can complete through a top-level return_result tool call or an
+        # inline return_result() inside execute_python.  A successful typed
+        # method return proves one of those native NOOA paths completed.
+        agent.return_trace.completed = True
     except Exception as exc:  # Expected experimental failure modes are outcomes.
         text = str(exc)
         agent.return_trace.error = text[:500]

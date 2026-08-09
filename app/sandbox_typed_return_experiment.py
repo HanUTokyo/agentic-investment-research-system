@@ -12,7 +12,8 @@ from app.experiments.typed_return_schema import LEVEL_METHODS, TypedReturnExperi
 from app.llm import build_nooa_controller_llm
 
 RUNS_PER_LEVEL = int(os.environ.get("TYPED_RETURN_RUNS_PER_LEVEL", "20"))
-OUTPUT = Path("/tmp/nooa-typed-return-gemma.jsonl")  # noqa: S108 - explicit opt-in trace
+DEFAULT_OUTPUT = "/tmp/nooa-typed-return-gemma.jsonl"  # noqa: S108 - explicit opt-in trace
+OUTPUT = Path(os.environ.get("TYPED_RETURN_OUTPUT", DEFAULT_OUTPUT))
 
 
 async def main() -> None:
@@ -34,13 +35,8 @@ async def main() -> None:
         grouped[str(row["level"])].append(row)
     for level, group in grouped.items():
         total = len(group)
-        native = sum(bool(row["native_return_called"]) for row in group)
-        valid = sum(
-            bool(row["native_return_called"])
-            and not bool(row["schema_validation_failed"])
-            and not bool(row["markdown_or_text"])
-            for row in group
-        )
+        native = sum(bool(row["completed"]) for row in group)
+        valid = sum(bool(row["completed"]) for row in group)
         print(
             json.dumps(
                 {
