@@ -6,6 +6,7 @@ existing valuation agent.  Only model invocation differs across conditions.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,6 +93,7 @@ class DirectStructuredClient:
         )
         self._owns_client = client is None
         self.model = model
+        self._timeout_seconds = timeout_seconds
         self.calls: list[RawCall] = []
 
     async def aclose(self) -> None:
@@ -104,22 +106,23 @@ class DirectStructuredClient:
         started = perf_counter()
         content: str | None = None
         try:
-            response = await self._client.post(
-                "chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": 0,
-                    "max_tokens": 768,
-                    "response_format": {
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": schema.__name__,
-                            "schema": schema.model_json_schema(),
+            async with asyncio.timeout(self._timeout_seconds):
+                response = await self._client.post(
+                    "chat/completions",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": 0,
+                        "max_tokens": 768,
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": schema.__name__,
+                                "schema": schema.model_json_schema(),
+                            },
                         },
                     },
-                },
-            )
+                )
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
             if not isinstance(content, str) or not content.strip():
