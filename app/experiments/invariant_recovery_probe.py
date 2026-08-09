@@ -160,6 +160,32 @@ class RecoveryPlanningClient(Protocol):
     async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Any: ...
 
 
+class RuntimeForcedRecoveryStrategy(CodeActStrategy):
+    """Inject a typed R1 recovery observation after one recoverable invariant.
+
+    The NOOA runtime invokes this hook only after the Controller has completed a
+    turn whose native finalization raised ``INVALID_EVIDENCE_PATH``. The hook
+    awaits R1 before the next Controller generation, preserving strict serial
+    execution. It never invokes a Java capability or returns a report.
+    """
+
+    async def _process_tool_calls(self, *args: Any, **kwargs: Any) -> Any:
+        result = await super()._process_tool_calls(*args, **kwargs)
+        runtime = args[1]
+        agent = runtime.agent
+        if not isinstance(agent, RuntimeForcedR1RecoveryAgent):
+            return result
+        if not agent.should_force_runtime_recovery():
+            return result
+
+        await agent.force_runtime_recovery_plan()
+        from nooa.events import Error
+
+        runtime.event_manager.add(Error(content=agent.runtime_recovery_observation()))
+        agent.controller_received_plan = agent.recovery_plan is not None
+        return result
+
+
 class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
     """Experimental Controller: R1 may plan recovery, never execute it."""
 
@@ -205,8 +231,6 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
             return self.recovery_plan
         except Exception as exc:
             self.r1_error_type = type(exc).__name__
-            if self.r1_content_empty is None:
-                self.r1_content_empty = True
             self.r1_latency_ms = self.r1_latency_ms or (perf_counter() - started) * 1000
             raise RuntimeError(f"recovery reason worker failed: {self.r1_error_type}") from exc
 
@@ -232,5 +256,67 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
         return_result(valid_candidate). R1 only proposes; it does not submit,
         modify, or calculate any report. Do not emit prose, call scenarios, or
         call any other worker.
+        """
+        ...
+
+
+class RuntimeForcedR1RecoveryAgent(R1AssistedInvariantRecoveryAgent):
+    """Probe agent where the runtime, rather than Ministral, requires R1."""
+
+    def __init__(self, *args: Any, recovery_client: RecoveryPlanningClient, **kwargs: Any) -> None:
+        super().__init__(*args, recovery_client=recovery_client, **kwargs)
+        self.runtime_recovery_triggered = False
+        self.controller_received_plan = False
+
+    def should_force_runtime_recovery(self) -> bool:
+        """Return true exactly once for the recoverable invariant under test."""
+        return (
+            not self.runtime_recovery_triggered
+            and self.last_invariant_feedback is not None
+            and self.last_invariant_feedback.startswith("ERROR_TYPE: INVALID_EVIDENCE_PATH")
+        )
+
+    async def force_runtime_recovery_plan(self) -> None:
+        """Runtime-only trigger; this is not a Controller-selected capability."""
+        self.runtime_recovery_triggered = True
+        await self.delegate_recovery_reason()
+
+    def runtime_recovery_observation(self) -> str:
+        """Return concise typed recovery context for the next Controller turn."""
+        if self.recovery_plan is None:
+            return (
+                "RUNTIME_RECOVERY_FAILURE\n"
+                f"ERROR_TYPE: {self.r1_error_type or 'unknown'}\n"
+                "ACTION: do not finalize; the required recovery plan was unavailable"
+            )
+        return (
+            "RUNTIME_RECOVERY_PLAN\n"
+            + self.recovery_plan.model_dump_json()
+            + "\nACTION: execute the plan yourself. If required_tool is "
+            "get_probe_valid_report, call await self.get_probe_valid_report(symbol) "
+            "and call return_result(valid_candidate) from execute_python."
+        )
+
+    @strategy(
+        RuntimeForcedRecoveryStrategy(
+            config=CodeActConfig(
+                max_iterations=6,
+                max_retries=3,
+                max_tokens=1024,
+                postconditions=(_probe_postcondition,),
+            )
+        )
+    )
+    async def recover_with_runtime_forced_r1(self, symbol: str) -> ValuationReport:
+        """Recover INVALID_EVIDENCE_PATH with a runtime-injected R1 plan.
+
+        First use execute_python to obtain invalid_candidate through
+        get_probe_invalid_report(symbol), then native return_result(invalid_candidate).
+        The runtime will detect the resulting invariant feedback and add one
+        RUNTIME_RECOVERY_PLAN observation before your next turn. Do not call R1.
+        Read the plan, then execute its required Java-backed capability yourself:
+        valid_candidate = await self.get_probe_valid_report(symbol), followed by
+        return_result(valid_candidate) from execute_python. Do not edit candidates,
+        construct reports, call scenarios, or emit prose.
         """
         ...
