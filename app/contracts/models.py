@@ -167,6 +167,17 @@ class ReasonCodeDelegationResult(ContractModel):
     final_answer: str = Field(min_length=1)
 
 
+class SerialDelegationResult(ContractModel):
+    """Stage 3 result with an explicit trust boundary for the Coder draft."""
+
+    reason_answer: str = Field(min_length=1)
+    untrusted_code_draft: str = Field(min_length=1)
+    code_draft_trusted: bool = False
+    chat_summary: str = Field(min_length=1)
+    verification_source: Literal["deterministic_expression"]
+    final_answer: str = Field(min_length=1)
+
+
 class ValuationReport(ContractModel):
     symbol: str
     conclusion: str

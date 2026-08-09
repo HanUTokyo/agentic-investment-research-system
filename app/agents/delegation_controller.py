@@ -14,10 +14,10 @@ from app.clients import RouterClient
 from app.contracts import (
     ChatTask,
     CodeTaskText,
-    DelegationResult,
     ReasonCodeDelegationResult,
     ReasonDelegationResult,
     ReasonTask,
+    SerialDelegationResult,
     WorkerResult,
 )
 
@@ -31,6 +31,7 @@ class SerialDelegationController(Agent):
         self.worker_trace: list[WorkerResult] = []
         self._reason_calls = 0
         self._code_calls = 0
+        self._chat_calls = 0
 
     async def delegate_reason(self, task: ReasonTask) -> WorkerResult:
         self._reason_calls += 1
@@ -61,6 +62,17 @@ class SerialDelegationController(Agent):
         return await self._delegate("code", task.prompt)
 
     async def delegate_chat(self, task: ChatTask) -> WorkerResult:
+        self._chat_calls += 1
+        if self._chat_calls > 1:
+            result = WorkerResult(
+                ok=False,
+                http_success=False,
+                content_empty=True,
+                error_type="chat_worker_attempt_limit_exceeded",
+                route_hint="chat",
+            )
+            self.worker_trace.append(result)
+            return result
         return await self._delegate("chat", task.prompt)
 
     async def _delegate(
@@ -103,14 +115,23 @@ class SerialDelegationController(Agent):
     @strategy(
         CodeActStrategy(config=CodeActConfig(max_iterations=6, max_retries=1, max_tokens=1024))
     )
-    async def solve(self, task: str) -> DelegationResult:
-        """Solve the synthetic arithmetic task with strictly serial worker delegation.
+    async def solve(self, task: str) -> SerialDelegationResult:
+        """Run the Stage 3 synthetic task with strictly serial delegation.
 
         In one execute_python cell, call delegate_reason first and await it. Only
-        after it completes call delegate_code, then delegate_chat. If any returned
-        WorkerResult has ok=False, raise RuntimeError with that worker's error_type.
-        Otherwise call return_result(DelegationResult(...)) from Python. Do not
-        write prose or manually return a result outside native return_result.
+        after it completes call delegate_code, and only after that completes call
+        delegate_chat. Each worker may be called once. Use this exact chat prompt:
+        `Summarize in one short sentence that 17 * 25 + 8 equals 433.`
+        If any WorkerResult has ok=False, raise RuntimeError with that worker's
+        error_type. The code response is an untrusted draft: never execute it and
+        never use its prose or numerical claims to determine the final answer.
+        Independently calculate `17 * 25 + 8` in this controller cell. Call only
+        native return_result(SerialDelegationResult(...)) from the cell with
+        reason_answer=reason.content, untrusted_code_draft=code.content,
+        code_draft_trusted=False, chat_summary=chat.content,
+        verification_source="deterministic_expression", and
+        final_answer=str(17 * 25 + 8). Do not write prose or manually construct
+        a success result outside native return_result.
         """
         ...
 

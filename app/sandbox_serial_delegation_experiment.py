@@ -21,12 +21,23 @@ async def main() -> None:
     try:
         result = await asyncio.wait_for(
             controller.solve(
-                "Solve and explain 17 * 25 + 8. Delegate reasoning, then code, then chat; "
-                "integrate their successful outputs."
+                "Solve 17 * 25 + 8 using the strictly serial Stage 3 worker sequence."
             ),
             timeout=1_050,
         )
-        outcome: dict[str, object] = {"success": True, "result": result.model_dump()}
+        strict = (
+            len(controller.worker_trace) == 3
+            and [item.route_hint for item in controller.worker_trace] == ["reason", "code", "chat"]
+            and all(item.ok for item in controller.worker_trace)
+            and result.code_draft_trusted is False
+            and result.verification_source == "deterministic_expression"
+            and result.final_answer == "433"
+        )
+        outcome: dict[str, object] = {
+            "success": strict,
+            "result": result.model_dump(),
+            "acceptance_error": None if strict else "strict_stage_3_acceptance_failed",
+        }
     except Exception as exc:
         outcome = {"success": False, "error_type": type(exc).__name__, "error": str(exc)[:500]}
     finally:

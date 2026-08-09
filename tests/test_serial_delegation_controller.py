@@ -61,3 +61,15 @@ async def test_reason_worker_cannot_be_retried_by_controller() -> None:
 
     assert router.calls == ["reason"]
     assert retry.error_type == "reason_worker_attempt_limit_exceeded"
+
+
+@pytest.mark.asyncio
+async def test_chat_worker_cannot_be_retried_by_controller() -> None:
+    router = FakeRouter()
+    controller = SerialDelegationController(router, llm=object())  # type: ignore[arg-type]
+
+    await controller.delegate_chat(ChatTask(prompt="first"))
+    retry = await controller.delegate_chat(ChatTask(prompt="second"))
+
+    assert router.calls == ["chat"]
+    assert retry.error_type == "chat_worker_attempt_limit_exceeded"
