@@ -213,14 +213,25 @@ def _failure_record(
 
 
 async def main() -> None:
-    results = [
-        await _direct_condition("direct_gemma", os.getenv("EVAL_GEMMA_MODEL", "gemma4:e4b")),
-        await _direct_condition(
+    conditions = {
+        "direct_gemma": lambda: _direct_condition(
+            "direct_gemma", os.getenv("EVAL_GEMMA_MODEL", "gemma4:e4b")
+        ),
+        "direct_ministral": lambda: _direct_condition(
             "direct_ministral", os.getenv("EVAL_MINISTRAL_MODEL", "ministral-3:8b")
         ),
-        await _nooa_condition("nooa_ministral_no_router", with_workers=False),
-        await _nooa_condition("nooa_ministral_router_three_workers", with_workers=True),
-    ]
+        "nooa_ministral_no_router": lambda: _nooa_condition(
+            "nooa_ministral_no_router", with_workers=False
+        ),
+        "nooa_ministral_router_three_workers": lambda: _nooa_condition(
+            "nooa_ministral_router_three_workers", with_workers=True
+        ),
+    }
+    selected = os.getenv("EVAL_CONDITION")
+    if selected and selected not in conditions:
+        raise ValueError(f"unknown EVAL_CONDITION: {selected}")
+    names = [selected] if selected else list(conditions)
+    results = [await conditions[name]() for name in names]
     artifact = {
         "event": "phase1b_four_way_evaluation",
         "case": "synthetic-aapl-phase1b-v1",
