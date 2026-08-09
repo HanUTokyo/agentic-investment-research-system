@@ -16,6 +16,7 @@ exec docker run --rm \
   --env STOCK_PLATFORM_BASE_URL=http://stock-proxy:8080 \
   --env AI_ROUTER_BASE_URL=http://router-proxy:8080 \
   --env MINISTRAL_CONTROLLER_BASE_URL=http://controller-proxy:8080/v1 \
+  --env AI_ROUTER_API_KEY="${AI_ROUTER_API_KEY:-}" \
   --env AGENT_HTTP_TIMEOUT_SECONDS="${AGENT_HTTP_TIMEOUT_SECONDS:-300}" \
   --env OBSERVATION_REPLAY_VARIANT="${OBSERVATION_REPLAY_VARIANT:-A}" \
   --env INVARIANT_RECOVERY_CASE="${INVARIANT_RECOVERY_CASE:-missing_initial_evidence}" \

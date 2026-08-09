@@ -11,7 +11,11 @@ from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ALLOWED = {
-    "router-proxy": {("GET", "/health/ready"), ("POST", "/v1/chat/completions")},
+    "router-proxy": {
+        ("GET", "/health/ready"),
+        ("POST", "/route"),
+        ("POST", "/v1/chat/completions"),
+    },
     "controller-proxy": {("POST", "/v1/chat/completions")},
     "stock-proxy": {
         ("GET", "/v3/api-docs"),
