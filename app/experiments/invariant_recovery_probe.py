@@ -20,6 +20,12 @@ ProbeCase = Literal[
     "unsupported_numeric_claim",
     "invalid_evidence_path",
 ]
+R1RecoveryPlanStatus = Literal[
+    "NO_COMPLETION",
+    "EMPTY_FINAL",
+    "INVALID_PLAN",
+    "VALID_PLAN",
+]
 
 
 def _probe_postcondition(agent: Any, result: Any, _call: Any) -> None:
@@ -193,9 +199,11 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
         super().__init__(*args, probe_case="invalid_evidence_path", **kwargs)
         self._recovery_client = recovery_client
         self.recovery_plan: RecoveryPlan | None = None
+        self.r1_invoked = False
         self.r1_content_empty: bool | None = None
         self.r1_latency_ms: float | None = None
         self.r1_error_type: str | None = None
+        self.r1_plan_status: R1RecoveryPlanStatus | None = None
 
     async def delegate_recovery_reason(self) -> RecoveryPlan:
         """Ask R1 once to plan recovery from the latest invariant feedback."""
@@ -205,6 +213,7 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
             raise RuntimeError("no invariant feedback is available for recovery planning")
         started = perf_counter()
         try:
+            self.r1_invoked = True
             completion = await self._recovery_client.complete(
                 [
                     {
@@ -219,18 +228,26 @@ class R1AssistedInvariantRecoveryAgent(InvariantRecoveryValuationAgent):
                     {"role": "user", "content": self.last_invariant_feedback},
                 ],
                 temperature=0,
-                max_tokens=384,
+                max_tokens=1024,
                 route_hint="reason",
             )
             self.r1_latency_ms = completion.latency_ms
             content = completion.content.strip()
             self.r1_content_empty = not bool(content)
             if not content:
+                self.r1_plan_status = "EMPTY_FINAL"
                 raise ValueError("R1 returned empty content")
-            self.recovery_plan = RecoveryPlan.model_validate(json.loads(content))
+            try:
+                self.recovery_plan = RecoveryPlan.model_validate(json.loads(content))
+            except Exception:
+                self.r1_plan_status = "INVALID_PLAN"
+                raise
+            self.r1_plan_status = "VALID_PLAN"
             return self.recovery_plan
         except Exception as exc:
             self.r1_error_type = type(exc).__name__
+            if self.r1_plan_status is None:
+                self.r1_plan_status = "NO_COMPLETION"
             self.r1_latency_ms = self.r1_latency_ms or (perf_counter() - started) * 1000
             raise RuntimeError(f"recovery reason worker failed: {self.r1_error_type}") from exc
 

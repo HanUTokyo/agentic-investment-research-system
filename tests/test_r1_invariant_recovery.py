@@ -57,6 +57,7 @@ async def test_recovery_reason_returns_strict_typed_plan_once() -> None:
 
     assert plan.required_tool == "get_probe_valid_report"
     assert agent.r1_content_empty is False
+    assert agent.r1_plan_status == "VALID_PLAN"
     assert router.calls == 1
     with pytest.raises(RuntimeError, match="only once"):
         await agent.delegate_recovery_reason()
@@ -76,6 +77,7 @@ async def test_recovery_reason_rejects_non_json_without_repair() -> None:
 
     assert agent.recovery_plan is None
     assert agent.r1_content_empty is False
+    assert agent.r1_plan_status == "INVALID_PLAN"
 
 
 @pytest.mark.asyncio
@@ -95,6 +97,7 @@ async def test_recovery_reason_keeps_content_empty_unknown_on_transport_failure(
         await agent.delegate_recovery_reason()
 
     assert agent.r1_content_empty is None
+    assert agent.r1_plan_status == "NO_COMPLETION"
 
 
 @pytest.mark.asyncio

@@ -71,9 +71,10 @@ async def main() -> None:
                 if agent.invariant_feedback
                 else None,
                 "runtime_recovery_triggered": agent.runtime_recovery_triggered,
-                "r1_called": agent.r1_content_empty is not None,
+                "r1_called": agent.r1_invoked,
                 "r1_content_empty": agent.r1_content_empty,
                 "r1_error_type": agent.r1_error_type,
+                "r1_plan_status": agent.r1_plan_status,
                 "recovery_plan_valid": agent.recovery_plan is not None,
                 "recovery_plan": agent.recovery_plan.model_dump(mode="json")
                 if agent.recovery_plan
