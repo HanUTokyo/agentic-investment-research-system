@@ -79,7 +79,9 @@ async def main() -> None:
             ],
             AdditionalScenarioDecision,
             temperature=0,
-            max_tokens=120,
+            # R1 needs enough completion budget to finish its internal
+            # reasoning before emitting the typed decision.
+            max_tokens=2048,
             route_hint="reason",
         )
         scenarios = [base.scenario]
@@ -111,7 +113,7 @@ async def main() -> None:
             ],
             ShortSynthesis,
             temperature=0,
-            max_tokens=160,
+            max_tokens=2048,
             route_hint="reason",
         )
         report = ValuationReport(

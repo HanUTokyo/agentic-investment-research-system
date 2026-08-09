@@ -44,7 +44,14 @@ class Gateway(BaseHTTPRequestHandler):
         )
         port = 8000 if alias == "router-proxy" else 8080
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-        connection = HTTPConnection(host, port, timeout=30)
+        # R1's local reasoning can legitimately take longer than the agent's
+        # default request budget.  This gateway must not sever an otherwise
+        # healthy serial request first.
+        connection = HTTPConnection(
+            host,
+            port,
+            timeout=float(os.environ.get("SANDBOX_UPSTREAM_TIMEOUT_SECONDS", "315")),
+        )
         headers = {
             key: value
             for key, value in self.headers.items()
