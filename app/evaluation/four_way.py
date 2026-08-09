@@ -159,6 +159,77 @@ class DirectStructuredClient:
         return result
 
 
+class DirectTextClient:
+    """Direct, free-form baseline client with a hard request boundary.
+
+    This deliberately sends no output schema.  It is used only to compare raw
+    snapshot prompting with the typed Phase 1B agent, not as a production path.
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        model: str,
+        timeout_seconds: float,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._client = client or httpx.AsyncClient(
+            base_url=f"{base_url.rstrip('/')}/", timeout=timeout_seconds
+        )
+        self._owns_client = client is None
+        self._timeout_seconds = timeout_seconds
+        self.model = model
+        self.calls: list[RawCall] = []
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
+
+    async def generate(self, messages: list[dict[str, str]]) -> str:
+        started = perf_counter()
+        content: str | None = None
+        try:
+            async with asyncio.timeout(self._timeout_seconds):
+                response = await self._client.post(
+                    "chat/completions",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": 0,
+                        "max_tokens": 768,
+                    },
+                )
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"]["content"]
+            if not isinstance(content, str) or not content.strip():
+                raise UpstreamProtocolError("direct model returned empty content")
+        except Exception as exc:
+            self.calls.append(
+                RawCall(
+                    "raw_snapshot",
+                    self.model,
+                    messages,
+                    content,
+                    (perf_counter() - started) * 1000,
+                    False,
+                    type(exc).__name__,
+                )
+            )
+            raise
+        self.calls.append(
+            RawCall(
+                "raw_snapshot",
+                self.model,
+                messages,
+                content,
+                (perf_counter() - started) * 1000,
+                True,
+            )
+        )
+        return content
+
+
 @dataclass
 class WorkerBundle:
     """Evaluation-only serial Router worker collector; all results remain advisory."""
