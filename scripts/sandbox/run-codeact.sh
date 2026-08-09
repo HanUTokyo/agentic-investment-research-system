@@ -16,4 +16,5 @@ exec docker run --rm \
   --env STOCK_PLATFORM_BASE_URL=http://stock-proxy:8080 \
   --env AI_ROUTER_BASE_URL=http://router-proxy:8080 \
   --env AGENT_HTTP_TIMEOUT_SECONDS="${AGENT_HTTP_TIMEOUT_SECONDS:-300}" \
+  --env TYPED_RETURN_RUNS_PER_LEVEL="${TYPED_RETURN_RUNS_PER_LEVEL:-20}" \
   agentic-investment-research-sandbox "$@"

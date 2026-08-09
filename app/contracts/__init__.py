@@ -9,6 +9,7 @@ from app.contracts.models import (
     Uncertainty,
     ValuationEvaluation,
     ValuationReport,
+    ValuationScenario,
     ValuationSnapshot,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "Uncertainty",
     "ValuationEvaluation",
     "ValuationReport",
+    "ValuationScenario",
     "ValuationSnapshot",
 ]
