@@ -161,7 +161,9 @@ class ReasonDelegationResult(ContractModel):
 
 class ReasonCodeDelegationResult(ContractModel):
     reason_answer: str = Field(min_length=1)
-    code_answer: str = Field(min_length=1)
+    untrusted_code_draft: str = Field(min_length=1)
+    code_draft_trusted: bool = False
+    verification_source: Literal["deterministic_expression"]
     final_answer: str = Field(min_length=1)
 
 

@@ -22,6 +22,9 @@ async def main() -> None:
             len(controller.worker_trace) == 2
             and [item.route_hint for item in controller.worker_trace] == ["reason", "code"]
             and all(item.ok for item in controller.worker_trace)
+            and result.code_draft_trusted is False
+            and result.verification_source == "deterministic_expression"
+            and result.final_answer == "433"
         )
         outcome: dict[str, object] = {
             "success": strict,
