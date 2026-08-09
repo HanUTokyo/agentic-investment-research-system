@@ -15,6 +15,7 @@ from app.contracts import (
     ChatTask,
     CodeTaskText,
     DelegationResult,
+    ReasonCodeDelegationResult,
     ReasonDelegationResult,
     ReasonTask,
     WorkerResult,
@@ -29,6 +30,7 @@ class SerialDelegationController(Agent):
         self._router = router
         self.worker_trace: list[WorkerResult] = []
         self._reason_calls = 0
+        self._code_calls = 0
 
     async def delegate_reason(self, task: ReasonTask) -> WorkerResult:
         self._reason_calls += 1
@@ -45,6 +47,17 @@ class SerialDelegationController(Agent):
         return await self._delegate("reason", task.prompt)
 
     async def delegate_code(self, task: CodeTaskText) -> WorkerResult:
+        self._code_calls += 1
+        if self._code_calls > 1:
+            result = WorkerResult(
+                ok=False,
+                http_success=False,
+                content_empty=True,
+                error_type="code_worker_attempt_limit_exceeded",
+                route_hint="code",
+            )
+            self.worker_trace.append(result)
+            return result
         return await self._delegate("code", task.prompt)
 
     async def delegate_chat(self, task: ChatTask) -> WorkerResult:
@@ -113,5 +126,21 @@ class SerialDelegationController(Agent):
         RuntimeError(reason.error_type or "reason worker failed"). Otherwise call
         `return_result(ReasonDelegationResult(worker_answer=reason.content, final_answer="433"))`.
         Do not emit prose and do not construct a result outside return_result.
+        """
+        ...
+
+    @strategy(
+        CodeActStrategy(config=CodeActConfig(max_iterations=4, max_retries=1, max_tokens=768))
+    )
+    async def solve_reason_code(self) -> ReasonCodeDelegationResult:
+        """Use exactly two serial workers and native return_result only.
+
+        In one execute_python cell, await delegate_reason first with the exact
+        arithmetic prompt. Confirm it is ok. Only then await delegate_code with
+        `Return only a minimal Python expression for 17 * 25 + 8.`. Confirm it
+        is ok. Do not execute the code worker's output. Do not call chat. On
+        either failure raise RuntimeError. Finally call
+        return_result(ReasonCodeDelegationResult(reason_answer=reason.content,
+        code_answer=code.content, final_answer="433")) from the cell.
         """
         ...
