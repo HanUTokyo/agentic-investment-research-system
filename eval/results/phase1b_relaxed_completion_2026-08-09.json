@@ -1,0 +1,210 @@
+{
+  "event": "phase1b_relaxed_completion_comparison",
+  "case": "synthetic-aapl-phase1b-v1",
+  "note": "These are separately labelled relaxed reruns. They do not replace strict historical four-way results.",
+  "conditions": [
+    {
+      "label": "direct_gemma_relaxed_raw_snapshot",
+      "changes_from_strict": [
+        "free-form baseline rather than JSON schema",
+        "max_tokens 768 -> 2048",
+        "two short complete paragraphs instruction"
+      ],
+      "result": {
+        "event": "raw_java_snapshot_baseline",
+        "case": "synthetic-aapl-phase1b-v1",
+        "model": "gemma4:e4b",
+        "success": true,
+        "latency_ms": 61167.357444996014,
+        "raw_calls": [
+          {
+            "stage": "raw_snapshot",
+            "model": "gemma4:e4b",
+            "prompt": [
+              {
+                "role": "system",
+                "content": "You are an investment research analyst. The user message contains a question and complete deterministic Java valuation API outputs. Answer directly in concise prose. Do not calculate, alter, or invent financial numbers. Every numerical claim must be present in the supplied Java JSON. Identify the most important uncertainty. Use at most 120 words in two complete paragraphs; finish every sentence."
+              },
+              {
+                "role": "user",
+                "content": "{\n  \"question\": \"Why is AAPL's current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?\",\n  \"java_api_outputs\": {\n    \"GET /api/valuations/AAPL\": {\n      \"symbol\": \"AAPL\",\n      \"engineVersion\": \"synthetic-java-valuation-1.0.0\",\n      \"selectedModel\": \"FCFE\",\n      \"overview\": {\n        \"currentPrice\": 313.33,\n        \"bearValue\": 57.59,\n        \"baseValue\": 84.0,\n        \"bullValue\": 160.81\n      },\n      \"dataQuality\": {\n        \"reasons\": [\n          \"FCFF cross-check is incomplete.\",\n          \"High ROE may be distorted by buybacks or a small equity base.\"\n        ]\n      },\n      \"scenarios\": [\n        {\n          \"scenarioType\": \"BEAR\",\n          \"selectedModel\": \"FCFE\",\n          \"valid\": true,\n          \"intrinsicValuePerShare\": 57.59,\n          \"warnings\": []\n        },\n        {\n          \"scenarioType\": \"BASE\",\n          \"selectedModel\": \"FCFE\",\n          \"valid\": true,\n          \"intrinsicValuePerShare\": 84.0,\n          \"warnings\": []\n        },\n        {\n          \"scenarioType\": \"BULL\",\n          \"selectedModel\": \"FCFE\",\n          \"valid\": true,\n          \"intrinsicValuePerShare\": 160.81,\n          \"warnings\": []\n        }\n      ],\n      \"fieldSources\": {\n        \"currentPrice\": {\n          \"source\": \"SYNTHETIC_PRICE\",\n          \"field\": \"closePrice\"\n        }\n      }\n    },\n    \"POST /api/valuations/AAPL/evaluate (predefined BULL scenario)\": {\n      \"symbol\": \"AAPL\",\n      \"engineVersion\": \"synthetic-java-valuation-1.0.0\",\n      \"scenario\": {\n        \"scenarioType\": \"BULL\",\n        \"selectedModel\": \"FCFE\",\n        \"valid\": true,\n        \"intrinsicValuePerShare\": 160.81,\n        \"warnings\": []\n      }\n    }\n  }\n}"
+              }
+            ],
+            "response": "AAPL's current market price of $313.33 significantly exceeds the base intrinsic value calculated at $84.0, suggesting that the market anticipates substantial future growth not fully captured by the FCFE model. The valuation range spans from a bear case of $57.59 to a bull case of $160.81, indicating considerable disagreement regarding the company's terminal potential.\n\nThe most important uncertainty to investigate is the data quality warning that states \"FCFF cross-check is incomplete.\" This suggests fundamental input data gaps could compromise the reliability of all derived intrinsic values. Additionally, analysts should scrutinize whether high Return on Equity (ROE) figures are distorted by aggressive buybacks or a small equity base.",
+            "latency_ms": 61167.27577894926,
+            "success": true,
+            "error_type": null,
+            "response_metadata": {
+              "usage": {
+                "prompt_tokens": 621,
+                "completion_tokens": 756,
+                "total_tokens": 1377
+              },
+              "model": "gemma4:e4b",
+              "system_fingerprint": "fp_ollama",
+              "finish_reason": "stop"
+            }
+          }
+        ],
+        "final_text": "AAPL's current market price of $313.33 significantly exceeds the base intrinsic value calculated at $84.0, suggesting that the market anticipates substantial future growth not fully captured by the FCFE model. The valuation range spans from a bear case of $57.59 to a bull case of $160.81, indicating considerable disagreement regarding the company's terminal potential.\n\nThe most important uncertainty to investigate is the data quality warning that states \"FCFF cross-check is incomplete.\" This suggests fundamental input data gaps could compromise the reliability of all derived intrinsic values. Additionally, analysts should scrutinize whether high Return on Equity (ROE) figures are distorted by aggressive buybacks or a small equity base."
+      }
+    },
+    {
+      "label": "nooa_ministral_no_router_relaxed",
+      "changes_from_strict": [
+        "legal action allowlist removes unavailable DELEGATE_REASON",
+        "reason max length 600 -> 1200",
+        "NOOA retries 2 -> 3"
+      ],
+      "result": {
+        "event": "relaxed_no_router_nooa_evaluation",
+        "case": "synthetic-aapl-phase1b-v1",
+        "success": true,
+        "latency_ms": 114958.38442700915,
+        "raw_trace": [
+          {
+            "type": "prompt",
+            "content": "# Your task\nChoose exactly one action from RUN_SCENARIO or FINALIZE.\n\n        No reasoning worker exists in this condition. Initial Java valuation\n        evidence is already available. You cannot call tools, write Python, or\n        choose a scenario type. Select RUN_SCENARIO at most once or FINALIZE.\n        Do not invent financial numbers or tool names.\n\n        {\"additional_java_scenario\": null, \"available_actions\": [\"RUN_SCENARIO\", \"FINALIZE\"], \"evaluation_worker_advisories\": [], \"java_compact_valuation\": {\"base_value\": \"84.0\", \"bear_value\": \"57.59\", \"bull_value\": \"160.81\", \"current_price\": \"313.33\", \"engine_version\": \"synthetic-java-valuation-1.0.0\", \"material_warnings\": [\"FCFF cross-check is incomplete.\", \"High ROE may be distorted by buybacks or a small equity base.\"], \"scenarios\": [{\"intrinsic_value_per_share\": \"57.59\", \"margin_of_safety_price\": null, \"scenario_type\": \"BEAR\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"84.0\", \"margin_of_safety_price\": null, \"scenario_type\": \"BASE\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"160.81\", \"margin_of_safety_price\": null, \"scenario_type\": \"BULL\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}], \"selected_model\": \"FCFE\", \"symbol\": \"AAPL\"}, \"limits\": {\"r1_calls_remaining\": 0, \"scenario_calls_remaining\": 1}, \"question\": \"Why is AAPL's current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?\", \"reason_worker\": {\"available\": false, \"ok\": null, \"proposal\": null}, \"state\": \"EVIDENCE_COLLECTED\"}\n        \n\n## Input parameters:\ncontext = '{\"additional_java_scenario\": null, \"available_actions\": [\"RUN_SCENARIO\", \"FINALIZE\"], \"evaluation_worker_advisories\": [], \"java_compact_valuation\": {\"base_value\": \"84.0\", \"bear_value\": \"57.59\", \"bull_value\": \"160.81\", \"current_price\": \"313.33\", \"engine_version\": \"synthetic-java-valuation-1.0.0\", \"material_warnings\": [\"FCFF cross-check is incomplete.\", \"High ROE may be distorted by buybacks or a small equity base.\"], \"scenarios\": [{\"intrinsic_value_per_share\": \"57.59\", \"margin_of_safety_price\": null, \"scenario_type\": \"BEAR\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"84.0\", \"margin_of_safety_price\": null, \"scenario_type\": \"BASE\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"160.81\", \"margin_of_safety_price\": null, \"scenario_type\": \"BULL\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}], \"selected_model\": \"FCFE\", \"symbol\": \"AAPL\"}, \"limits\": {\"r1_calls_remaining\": 0, \"scenario_calls_remaining\": 1}, \"question\": \"Why is AAPL\\'s current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?\", \"reason_worker\": {\"available\": false, \"ok\": null, \"proposal\": null}, \"state\": \"EVIDENCE_COLLECTED\"}'\n\nPerform the task and return the result directly."
+          },
+          {
+            "type": "completion",
+            "content": "{\"action\":\"FINALIZE\",\"reason\":\"The current market price of AAPL ($313.33) is significantly above its base intrinsic value ($84.0), which may reflect short-term investor sentiment, growth expectations beyond the base case, or valuation premiums for intangible assets like brand strength and ecosystem dominance. However, the most important material uncertainty to investigate stems from the **incomplete FCFF cross-check** and potential **distortions in ROE due to buybacks or a small equity base**, as highlighted by Java's material warnings. These factors could undermine the reliability of the intrinsic value estimates, particularly if capital allocation decisions (e.g., share repurchases) are distorting profitability metrics. No additional scenarios or reasoning calls are needed because the deterministic evidence already covers this gap, and no further numerical assumptions can be derived without violating constraints.\"}"
+          },
+          {
+            "type": "prompt",
+            "content": "# Your task\nCreate a qualitative valuation synthesis from the supplied Java facts.\n\n        You cannot call tools or write Python.  Do not include any digits or\n        numerical values in conclusion or primary_uncertainty.  Set\n        valuation_basis exactly to the supplied selected_model.  State only a\n        qualitative conclusion and a material uncertainty already present in the\n        deterministic observation.  The runtime, not you, will attach Java-backed\n        numerical scenarios and evidence paths.\n\n        {\"additional_java_scenario\": null, \"evaluation_worker_advisories\": [], \"java_compact_valuation\": {\"base_value\": \"84.0\", \"bear_value\": \"57.59\", \"bull_value\": \"160.81\", \"current_price\": \"313.33\", \"engine_version\": \"synthetic-java-valuation-1.0.0\", \"material_warnings\": [\"FCFF cross-check is incomplete.\", \"High ROE may be distorted by buybacks or a small equity base.\"], \"scenarios\": [{\"intrinsic_value_per_share\": \"57.59\", \"margin_of_safety_price\": null, \"scenario_type\": \"BEAR\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"84.0\", \"margin_of_safety_price\": null, \"scenario_type\": \"BASE\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"160.81\", \"margin_of_safety_price\": null, \"scenario_type\": \"BULL\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}], \"selected_model\": \"FCFE\", \"symbol\": \"AAPL\"}, \"question\": \"Why is AAPL's current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?\", \"selected_model_required_verbatim\": \"FCFE\", \"untrusted_reason_proposal\": null}\n        \n\n## Input parameters:\ncontext = '{\"additional_java_scenario\": null, \"evaluation_worker_advisories\": [], \"java_compact_valuation\": {\"base_value\": \"84.0\", \"bear_value\": \"57.59\", \"bull_value\": \"160.81\", \"current_price\": \"313.33\", \"engine_version\": \"synthetic-java-valuation-1.0.0\", \"material_warnings\": [\"FCFF cross-check is incomplete.\", \"High ROE may be distorted by buybacks or a small equity base.\"], \"scenarios\": [{\"intrinsic_value_per_share\": \"57.59\", \"margin_of_safety_price\": null, \"scenario_type\": \"BEAR\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"84.0\", \"margin_of_safety_price\": null, \"scenario_type\": \"BASE\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}, {\"intrinsic_value_per_share\": \"160.81\", \"margin_of_safety_price\": null, \"scenario_type\": \"BULL\", \"selected_model\": \"FCFE\", \"valid\": true, \"warnings\": []}], \"selected_model\": \"FCFE\", \"symbol\": \"AAPL\"}, \"question\": \"Why is AAPL\\'s current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?\", \"selected_model_required_verbatim\": \"FCFE\", \"untrusted_reason_proposal\": null}'\n\nPerform the task and return the result directly."
+          },
+          {
+            "type": "completion",
+            "content": "{\"conclusion\":\"Apple's market valuation appears to be driven by investor expectations of sustained growth and premium placed on its brand, ecosystem dominance, and innovation capabilities, which exceed the base intrinsic value derived from fundamental cash flow projections.\",\"valuation_basis\":\"FCFE\",\"primary_uncertainty\":\"The reliability of the intrinsic value estimates is compromised by the incomplete free cash flow (FCFF) cross-check process and potential distortions in return on equity (ROE) due to aggressive share buyback programs or a relatively small equity base, which may skew profitability metrics.\",\"uncertainty_severity\":\"high\"}"
+          }
+        ],
+        "trajectory": [
+          {
+            "state": "EVIDENCE_COLLECTED",
+            "observation_type": "CompactValuationObservation",
+            "decision_schema": null,
+            "decision": null,
+            "dispatcher_action": "GET_COMPACT_VALUATION",
+            "tool_result": "success",
+            "validation_result": "valid",
+            "latency_ms": 3.434541868045926
+          },
+          {
+            "state": "EVIDENCE_COLLECTED",
+            "observation_type": "CompactValuationObservation",
+            "decision_schema": "NoRouterNextActionDecision",
+            "decision": {
+              "action": "FINALIZE",
+              "reason": "The current market price of AAPL ($313.33) is significantly above its base intrinsic value ($84.0), which may reflect short-term investor sentiment, growth expectations beyond the base case, or valuation premiums for intangible assets like brand strength and ecosystem dominance. However, the most important material uncertainty to investigate stems from the **incomplete FCFF cross-check** and potential **distortions in ROE due to buybacks or a small equity base**, as highlighted by Java's material warnings. These factors could undermine the reliability of the intrinsic value estimates, particularly if capital allocation decisions (e.g., share repurchases) are distorting profitability metrics. No additional scenarios or reasoning calls are needed because the deterministic evidence already covers this gap, and no further numerical assumptions can be derived without violating constraints."
+            },
+            "dispatcher_action": null,
+            "tool_result": null,
+            "validation_result": "valid",
+            "latency_ms": 81021.71016181819
+          },
+          {
+            "state": "FINALIZED",
+            "observation_type": "typed_synthesis",
+            "decision_schema": "ValuationSynthesis",
+            "decision": {
+              "conclusion": "Apple's market valuation appears to be driven by investor expectations of sustained growth and premium placed on its brand, ecosystem dominance, and innovation capabilities, which exceed the base intrinsic value derived from fundamental cash flow projections.",
+              "valuation_basis": "FCFE",
+              "primary_uncertainty": "The reliability of the intrinsic value estimates is compromised by the incomplete free cash flow (FCFF) cross-check process and potential distortions in return on equity (ROE) due to aggressive share buyback programs or a relatively small equity base, which may skew profitability metrics.",
+              "uncertainty_severity": "high"
+            },
+            "dispatcher_action": "FINALIZE",
+            "tool_result": "ValuationReport",
+            "validation_result": "grounded_valid",
+            "latency_ms": 33932.650516042486
+          }
+        ],
+        "grounding_success": true,
+        "unsupported_numerical_claim_count": 0,
+        "report": {
+          "symbol": "AAPL",
+          "conclusion": "Apple's market valuation appears to be driven by investor expectations of sustained growth and premium placed on its brand, ecosystem dominance, and innovation capabilities, which exceed the base intrinsic value derived from fundamental cash flow projections.",
+          "valuation_basis": "FCFE",
+          "engine_version": "synthetic-java-valuation-1.0.0",
+          "scenario_results": [
+            {
+              "scenario_type": "BEAR",
+              "selected_model": "FCFE",
+              "valid": true,
+              "intrinsic_value_per_share": "57.59",
+              "margin_of_safety_price": null,
+              "warnings": [],
+              "resolved_assumptions": null
+            },
+            {
+              "scenario_type": "BASE",
+              "selected_model": "FCFE",
+              "valid": true,
+              "intrinsic_value_per_share": "84.0",
+              "margin_of_safety_price": null,
+              "warnings": [],
+              "resolved_assumptions": null
+            },
+            {
+              "scenario_type": "BULL",
+              "selected_model": "FCFE",
+              "valid": true,
+              "intrinsic_value_per_share": "160.81",
+              "margin_of_safety_price": null,
+              "warnings": [],
+              "resolved_assumptions": null
+            }
+          ],
+          "market_implied_assumptions": null,
+          "evidence": [
+            {
+              "claim": "Current market price from Java compact valuation",
+              "source_path": "java.compact_valuation.overview.current_price",
+              "value": "313.33",
+              "source_field": "currentPrice"
+            },
+            {
+              "claim": "BEAR intrinsic value from Java scenario",
+              "source_path": "java.compact_valuation.scenarios[0].intrinsic_value_per_share",
+              "value": "57.59",
+              "source_field": "intrinsicValuePerShare"
+            },
+            {
+              "claim": "BASE intrinsic value from Java scenario",
+              "source_path": "java.compact_valuation.scenarios[1].intrinsic_value_per_share",
+              "value": "84.0",
+              "source_field": "intrinsicValuePerShare"
+            },
+            {
+              "claim": "BULL intrinsic value from Java scenario",
+              "source_path": "java.compact_valuation.scenarios[2].intrinsic_value_per_share",
+              "value": "160.81",
+              "source_field": "intrinsicValuePerShare"
+            }
+          ],
+          "uncertainties": [
+            {
+              "description": "The reliability of the intrinsic value estimates is compromised by the incomplete free cash flow (FCFF) cross-check process and potential distortions in return on equity (ROE) due to aggressive share buyback programs or a relatively small equity base, which may skew profitability metrics.",
+              "severity": "high",
+              "source_path": "java.compact_valuation.material_warnings"
+            }
+          ],
+          "warnings": [
+            "FCFF cross-check is incomplete.",
+            "High ROE may be distorted by buybacks or a small equity base."
+          ],
+          "tool_calls": [
+            {
+              "tool_name": "get_compact_valuation",
+              "success": true,
+              "duration_ms": 0.002
+            }
+          ],
+          "trace_id": "66c91abe-98a3-4626-b55e-7dbbde2dd459",
+          "generated_at": "2026-08-09T13:40:25.281613Z"
+        }
+      }
+    }
+  ],
+  "strict_reference": "eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json"
+}
