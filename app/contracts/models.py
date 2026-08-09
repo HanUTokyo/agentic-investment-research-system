@@ -147,6 +147,14 @@ class WorkerResult(ContractModel):
     model: str | None = None
 
 
+class ReasonResult(ContractModel):
+    """An untrusted, non-numerical proposal from the bounded R1 worker."""
+
+    worker: WorkerResult
+    proposal: str | None = None
+    trusted_for_numerical_claims: bool = False
+
+
 class DelegationResult(ContractModel):
     reason_summary: str = Field(min_length=1)
     code_answer: str = Field(min_length=1)

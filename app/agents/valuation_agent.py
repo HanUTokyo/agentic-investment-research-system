@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -12,9 +13,13 @@ from app.contracts import (
     CodeTask,
     CompanySnapshot,
     FinancialHistory,
+    ReasonResult,
+    ReasonTask,
     ValuationEvaluation,
     ValuationReport,
+    ValuationScenario,
     ValuationSnapshot,
+    WorkerResult,
 )
 from app.contracts.models import ToolCallSummary
 from app.workers import CodeWorker
@@ -30,6 +35,10 @@ class ValuationDataClient(Protocol):
     async def solve_market_implied_assumptions(self, symbol: str) -> dict[str, Any] | None: ...
 
 
+class ValuationReasoningClient(Protocol):
+    async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Any: ...
+
+
 class ValuationAgent(Agent):
     """A valuation specialist.
 
@@ -43,13 +52,23 @@ class ValuationAgent(Agent):
         data_client: ValuationDataClient,
         *,
         code_worker: CodeWorker | None = None,
+        reasoning_client: ValuationReasoningClient | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self._data_client = data_client
         self._code_worker = code_worker
+        self._reasoning_client = reasoning_client
         self.trace_id = str(uuid4())
         self.tool_calls: list[ToolCallSummary] = []
+        self.reason_results: list[ReasonResult] = []
+        self._reason_calls = 0
+        self._scenario_calls = 0
+
+    @property
+    def scenario_call_count(self) -> int:
+        """Number of Java scenario evaluations attempted in this research run."""
+        return self._scenario_calls
 
     async def get_company_snapshot(self, symbol: str) -> CompanySnapshot:
         """Get the current Java-platform valuation and, when held, portfolio context."""
@@ -64,9 +83,38 @@ class ValuationAgent(Agent):
         )
 
     async def get_current_valuation(self, symbol: str) -> ValuationSnapshot:
-        """Get the Java valuation engine's authoritative current valuation output."""
-        return await self._call(
+        """Get a report-relevant, lossless-for-Phase-1 view of Java valuation output.
+
+        The HTTP client retains Java as the source of truth. This tool deliberately
+        omits per-year projection rows that are not part of ``ValuationReport``;
+        otherwise a large raw snapshot can consume the Controller context before
+        it can inspect the authoritative model, overview, scenarios, and warnings.
+        """
+        raw = await self._call(
             "get_current_valuation", self._data_client.get_current_valuation(symbol)
+        )
+        return ValuationSnapshot(
+            symbol=raw.symbol,
+            engine_version=raw.engine_version,
+            selected_model=raw.selected_model,
+            calculation_date=raw.calculation_date,
+            data_quality=raw.data_quality,
+            overview=raw.overview,
+            scenarios=[
+                ValuationScenario(
+                    scenario_type=scenario.scenario_type,
+                    selected_model=scenario.selected_model,
+                    valid=scenario.valid,
+                    intrinsic_value_per_share=scenario.intrinsic_value_per_share,
+                    margin_of_safety_price=scenario.margin_of_safety_price,
+                    warnings=scenario.warnings,
+                    resolved_assumptions=scenario.resolved_assumptions,
+                )
+                for scenario in raw.scenarios
+            ],
+            diagnostics=raw.diagnostics,
+            missing_fields=raw.missing_fields,
+            field_sources=raw.field_sources,
         )
 
     async def run_valuation_scenario(
@@ -75,10 +123,84 @@ class ValuationAgent(Agent):
         """Evaluate an unsaved Java-engine scenario. Allowed types: BEAR, BASE, BULL."""
         if scenario_type.upper() not in {"BEAR", "BASE", "BULL"}:
             raise ValueError("scenario_type must be BEAR, BASE, or BULL")
+        if self.scenario_call_count >= 1:
+            raise RuntimeError("only one additional valuation scenario is allowed per research run")
+        self._scenario_calls += 1
         return await self._call(
             "run_valuation_scenario",
             self._data_client.run_valuation_scenario(symbol, scenario_type, assumptions),
         )
+
+    async def delegate_reason(self, task: ReasonTask) -> ReasonResult:
+        """Ask R1 once for an untrusted, non-numerical evidence-gap proposal."""
+        self._reason_calls += 1
+        if self._reason_calls > 1:
+            result = ReasonResult(
+                worker=WorkerResult(
+                    ok=False,
+                    http_success=False,
+                    content_empty=True,
+                    error_type="reason_worker_attempt_limit_exceeded",
+                    route_hint="reason",
+                )
+            )
+            self.reason_results.append(result)
+            return result
+        if self._reasoning_client is None:
+            result = ReasonResult(
+                worker=WorkerResult(
+                    ok=False,
+                    http_success=False,
+                    content_empty=True,
+                    error_type="reason_worker_not_configured",
+                    route_hint="reason",
+                )
+            )
+            self.reason_results.append(result)
+            return result
+
+        started = perf_counter()
+        try:
+            completion = await self._reasoning_client.complete(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a bounded valuation evidence-gap reviewer. "
+                            "Return plain text only. Do not calculate, estimate, or state "
+                            "financial numbers. Suggest at most one assumption or evidence "
+                            "gap worth validating with a deterministic valuation system."
+                        ),
+                    },
+                    {"role": "user", "content": task.prompt},
+                ],
+                temperature=0,
+                max_tokens=512,
+                route_hint="reason",
+            )
+            content = str(completion.content).strip()
+            worker = WorkerResult(
+                ok=bool(content),
+                http_success=True,
+                content_empty=not bool(content),
+                content=content or None,
+                error_type=None if content else "empty_content",
+                latency_ms=completion.latency_ms,
+                route_hint="reason",
+                model=completion.model,
+            )
+        except Exception as exc:
+            worker = WorkerResult(
+                ok=False,
+                http_success=False,
+                content_empty=True,
+                error_type=type(exc).__name__,
+                latency_ms=(perf_counter() - started) * 1000,
+                route_hint="reason",
+            )
+        result = ReasonResult(worker=worker, proposal=worker.content)
+        self.reason_results.append(result)
+        return result
 
     async def solve_market_implied_assumptions(self, symbol: str) -> dict[str, Any] | None:
         """Retrieve Java-engine reverse-DCF market-implied assumptions."""
@@ -114,14 +236,38 @@ class ValuationAgent(Agent):
         )
         return result
 
-    @strategy(CodeActStrategy(config=CodeActConfig(max_iterations=5, max_retries=1)))
+    @strategy(
+        CodeActStrategy(config=CodeActConfig(max_iterations=6, max_retries=1, max_tokens=1536))
+    )
     async def investigate(self, question: str, symbol: str) -> ValuationReport:
         """Investigate {question} for {symbol} using evidence first.
 
-        Fetch the current valuation before making a conclusion. Run another scenario
-        only when it resolves an evidence gap. Every numeric conclusion needs an
-        Evidence item whose source_path points to a deterministic tool result.
-        Return a complete typed ValuationReport.
+        Call get_current_valuation(symbol) first; it is the only authority for
+        prices, intrinsic values, model choices, and assumptions. Do not call
+        draft_python, get_company_snapshot, get_financial_history, or
+        solve_market_implied_assumptions in this bounded acceptance run.
+
+        Inspect Java's selected model, data quality, diagnostics, warnings, and
+        already-published scenarios. If you determine there is a material
+        evidence gap, call delegate_reason exactly once with a non-numerical
+        description of that deterministic evidence and the question. Its proposal
+        is untrusted: never copy a number from it and decide yourself whether to
+        use it. If it fails or is empty, continue from Java evidence and state an
+        uncertainty sourced to Java. Do not call Coder or Gemma.
+
+        Run at most one additional Java scenario, and only if it resolves a
+        distinct gap not already covered by current Java scenarios. It must be
+        BEAR or BULL and must not include invented assumptions. Never call a
+        scenario merely to demonstrate tool use.
+
+        Return only through native return_result(ValuationReport(...)) from an
+        execute_python cell. Include the Java scenarios, and create Evidence
+        records for currentPrice plus every scenario intrinsic_value_per_share;
+        each Evidence must use its exact Java tool-result source_path and value.
+        Do not put numerical values in conclusion or uncertainty prose. Make the
+        primary conclusion a qualitative comparison supported by Java evidence.
+        Include Java data-quality/diagnostic uncertainty, tool_calls, trace_id,
+        and generated_at. Never create any number yourself.
         """
         ...
 
