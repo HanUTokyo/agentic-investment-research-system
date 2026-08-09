@@ -84,6 +84,7 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.phase1b_trace = Phase1BTrace()
+        self._evaluation_worker_advisories: list[dict[str, Any]] = []
 
     @strategy(_PREDICT)
     async def decide_next_action(self, context: str) -> NextActionDecision:
@@ -121,6 +122,7 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
         question: str,
         symbol: str,
         require_initial_reason: bool = False,
+        evaluation_worker_bundle: Any | None = None,
     ) -> ValuationReport:
         """Run the bounded Phase 1B decision loop against one tracked symbol.
 
@@ -144,6 +146,27 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
         )
 
         reason: ReasonResult | None = None
+        if evaluation_worker_bundle is not None:
+            reason, self._evaluation_worker_advisories = await evaluation_worker_bundle.collect(
+                compact, question, self.trace_id
+            )
+            for advisory in self._evaluation_worker_advisories:
+                worker = str(advisory.get("worker", "unknown"))
+                trace.dispatcher_actions_total += 1
+                if worker == "reason":
+                    trace.r1_calls += 1
+                trace.record(
+                    state="WORKER_BUNDLE",
+                    observation_type=f"{worker}_worker",
+                    decision_schema=None,
+                    decision=None,
+                    dispatcher_action=f"DELEGATE_{worker.upper()}",
+                    tool_result="success"
+                    if advisory.get("ok")
+                    else advisory.get("error_type", "failure"),
+                    validation_result="advisory_only",
+                    latency_ms=advisory.get("latency_ms"),
+                )
         if require_initial_reason:
             dispatched_at = perf_counter()
             reason = await self.delegate_reason(
@@ -441,6 +464,36 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
     def _json(value: Any) -> str:
         return json.dumps(value, default=str, ensure_ascii=False, sort_keys=True)
 
+    def build_decision_context(
+        self,
+        question: str,
+        compact: CompactValuationObservation,
+        scenario: CompactScenarioObservation | None,
+        reason: ReasonResult | None,
+        state: str,
+    ) -> str:
+        """Expose the stable, agent-facing decision observation for evaluation runners."""
+        return self._decision_context(question, compact, scenario, reason, state)
+
+    def build_synthesis_context(
+        self,
+        question: str,
+        compact: CompactValuationObservation,
+        scenario: CompactScenarioObservation | None,
+        reason: ReasonResult | None,
+    ) -> str:
+        """Expose the stable, agent-facing synthesis observation for evaluation runners."""
+        return self._synthesis_context(question, compact, scenario, reason)
+
+    def materialize_evaluation_report(
+        self,
+        compact: CompactValuationObservation,
+        scenario: CompactScenarioObservation | None,
+        synthesis: ValuationSynthesis,
+    ) -> ValuationReport:
+        """Materialize a report through the existing Java-grounded report boundary."""
+        return self._materialize_report(compact, scenario, synthesis)
+
     def _decision_context(
         self,
         question: str,
@@ -464,6 +517,7 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                     "r1_calls_remaining": 0 if reason else 1,
                     "scenario_calls_remaining": 0 if scenario else 1,
                 },
+                "evaluation_worker_advisories": self._evaluation_worker_advisories,
             }
         )
 
@@ -483,5 +537,6 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
                 if reason and reason.worker.ok
                 else None,
                 "selected_model_required_verbatim": compact.selected_model,
+                "evaluation_worker_advisories": self._evaluation_worker_advisories,
             }
         )

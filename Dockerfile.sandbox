@@ -9,6 +9,7 @@ WORKDIR /sandbox
 COPY pyproject.toml uv.lock* ./
 RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
 COPY app ./app
+COPY fixtures/eval ./fixtures/eval
 USER agent
 ENV HOME=/sandbox PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_CACHE_DIR=/tmp/uv-cache
 ENTRYPOINT [".venv/bin/python"]

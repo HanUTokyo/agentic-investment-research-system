@@ -1,0 +1,22 @@
+{
+  "caseId": "synthetic-aapl-phase1b-v1",
+  "question": "Why is AAPL's current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?",
+  "valuation": {
+    "symbol": "AAPL",
+    "engineVersion": "synthetic-java-valuation-1.0.0",
+    "selectedModel": "FCFE",
+    "overview": {"currentPrice": 313.33, "bearValue": 57.59, "baseValue": 84.0, "bullValue": 160.81},
+    "dataQuality": {"reasons": ["FCFF cross-check is incomplete.", "High ROE may be distorted by buybacks or a small equity base."]},
+    "scenarios": [
+      {"scenarioType": "BEAR", "selectedModel": "FCFE", "valid": true, "intrinsicValuePerShare": 57.59, "warnings": []},
+      {"scenarioType": "BASE", "selectedModel": "FCFE", "valid": true, "intrinsicValuePerShare": 84.0, "warnings": []},
+      {"scenarioType": "BULL", "selectedModel": "FCFE", "valid": true, "intrinsicValuePerShare": 160.81, "warnings": []}
+    ],
+    "fieldSources": {"currentPrice": {"source": "SYNTHETIC_PRICE", "field": "closePrice"}}
+  },
+  "scenarioEvaluation": {
+    "symbol": "AAPL",
+    "engineVersion": "synthetic-java-valuation-1.0.0",
+    "scenario": {"scenarioType": "BULL", "selectedModel": "FCFE", "valid": true, "intrinsicValuePerShare": 160.81, "warnings": []}
+  }
+}
