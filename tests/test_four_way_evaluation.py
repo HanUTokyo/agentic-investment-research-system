@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.agents.valuation_projection import project_compact_valuation
 from app.clients.errors import UpstreamProtocolError
-from app.contracts import NextActionDecision
+from app.contracts import NextActionDecision, NoRouterNextActionDecision
 from app.evaluation.four_way import (
     DirectStructuredClient,
     DirectTextClient,
@@ -119,5 +119,13 @@ def test_checked_in_evaluation_artifact_is_public_and_synthetic() -> None:
     for path in (
         Path("eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json"),
         Path("eval/results/raw_java_snapshot_three_model_2026-08-09.json"),
+        Path("eval/results/phase1b_relaxed_completion_2026-08-09.json"),
     ):
         validate_public_synthetic_artifact(json.loads(path.read_text()))
+
+
+def test_no_router_decision_rejects_unavailable_delegation() -> None:
+    with pytest.raises(ValidationError):
+        NoRouterNextActionDecision.model_validate(
+            {"action": "DELEGATE_REASON", "reason": "This capability is unavailable."}
+        )

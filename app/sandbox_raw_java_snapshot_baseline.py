@@ -14,7 +14,7 @@ from app.evaluation.four_way import DirectTextClient
 CASE_PATH = Path("/sandbox/fixtures/eval/phase1b_aapl.json")
 
 
-def build_messages(payload: dict[str, object]) -> list[dict[str, str]]:
+def build_messages(payload: dict[str, object], *, concise: bool = False) -> list[dict[str, str]]:
     question = str(payload["question"])
     raw_java_outputs = {
         "GET /api/valuations/AAPL": payload["valuation"],
@@ -30,6 +30,11 @@ def build_messages(payload: dict[str, object]) -> list[dict[str, str]]:
                 "complete deterministic Java valuation API outputs. Answer directly in concise prose. "
                 "Do not calculate, alter, or invent financial numbers. Every numerical claim must be "
                 "present in the supplied Java JSON. Identify the most important uncertainty."
+                + (
+                    " Use at most 120 words in two complete paragraphs; finish every sentence."
+                    if concise
+                    else ""
+                )
             ),
         },
         {
@@ -51,10 +56,13 @@ async def main() -> None:
         base_url=str(settings.ministral_controller_base_url),
         model=model,
         timeout_seconds=settings.http_timeout_seconds,
+        max_tokens=int(os.getenv("RAW_SNAPSHOT_MAX_TOKENS", "768")),
     )
     started = perf_counter()
     try:
-        answer = await client.generate(build_messages(payload))
+        answer = await client.generate(
+            build_messages(payload, concise=os.getenv("RAW_SNAPSHOT_CONCISE", "") == "1")
+        )
         result: dict[str, object] = {
             "event": "raw_java_snapshot_baseline",
             "case": payload["caseId"],

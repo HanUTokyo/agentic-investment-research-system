@@ -86,6 +86,7 @@ class RawCall:
     latency_ms: float
     success: bool
     error_type: str | None = None
+    response_metadata: dict[str, Any] | None = None
 
 
 class DirectStructuredClient:
@@ -97,6 +98,7 @@ class DirectStructuredClient:
         base_url: str,
         model: str,
         timeout_seconds: float,
+        max_tokens: int = 768,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._client = client or httpx.AsyncClient(
@@ -105,6 +107,7 @@ class DirectStructuredClient:
         self._owns_client = client is None
         self.model = model
         self._timeout_seconds = timeout_seconds
+        self._max_tokens = max_tokens
         self.calls: list[RawCall] = []
 
     async def aclose(self) -> None:
@@ -124,7 +127,7 @@ class DirectStructuredClient:
                         "model": self.model,
                         "messages": messages,
                         "temperature": 0,
-                        "max_tokens": 768,
+                        "max_tokens": self._max_tokens,
                         "response_format": {
                             "type": "json_schema",
                             "json_schema": {
@@ -135,7 +138,9 @@ class DirectStructuredClient:
                     },
                 )
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            raw_response = response.json()
+            choice = raw_response["choices"][0]
+            content = choice["message"]["content"]
             if not isinstance(content, str) or not content.strip():
                 raise UpstreamProtocolError("direct model returned empty content")
             parsed = json.loads(content)
@@ -150,6 +155,7 @@ class DirectStructuredClient:
                     (perf_counter() - started) * 1000,
                     False,
                     type(exc).__name__,
+                    {"response_present": "raw_response" in locals()},
                 )
             )
             raise
@@ -172,6 +178,7 @@ class DirectTextClient:
         base_url: str,
         model: str,
         timeout_seconds: float,
+        max_tokens: int = 768,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._client = client or httpx.AsyncClient(
@@ -179,6 +186,7 @@ class DirectTextClient:
         )
         self._owns_client = client is None
         self._timeout_seconds = timeout_seconds
+        self._max_tokens = max_tokens
         self.model = model
         self.calls: list[RawCall] = []
 
@@ -197,11 +205,13 @@ class DirectTextClient:
                         "model": self.model,
                         "messages": messages,
                         "temperature": 0,
-                        "max_tokens": 768,
+                        "max_tokens": self._max_tokens,
                     },
                 )
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            raw_response = response.json()
+            choice = raw_response["choices"][0]
+            content = choice["message"]["content"]
             if not isinstance(content, str) or not content.strip():
                 raise UpstreamProtocolError("direct model returned empty content")
         except Exception as exc:
@@ -214,6 +224,7 @@ class DirectTextClient:
                     (perf_counter() - started) * 1000,
                     False,
                     type(exc).__name__,
+                    {"response_present": "raw_response" in locals()},
                 )
             )
             raise
@@ -225,6 +236,12 @@ class DirectTextClient:
                 content,
                 (perf_counter() - started) * 1000,
                 True,
+                response_metadata={
+                    key: raw_response.get(key)
+                    for key in ("usage", "model", "system_fingerprint")
+                    if key in raw_response
+                }
+                | {"finish_reason": choice.get("finish_reason")},
             )
         )
         return content

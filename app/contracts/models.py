@@ -162,6 +162,13 @@ class NextActionDecision(ContractModel):
     reason: str = Field(min_length=1, max_length=600)
 
 
+class NoRouterNextActionDecision(ContractModel):
+    """Evaluation-only decision contract when the reasoning capability is disabled."""
+
+    action: Literal["RUN_SCENARIO", "FINALIZE"]
+    reason: str = Field(min_length=1, max_length=1_200)
+
+
 class RecoveryDecision(ContractModel):
     """Bounded recovery choice; retained for a later probe, not auto-dispatched."""
 
