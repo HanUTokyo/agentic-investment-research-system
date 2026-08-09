@@ -8,7 +8,12 @@ from nooa.config import CodeActConfig
 from nooa.decorators import strategy
 from nooa.strategies import CodeActStrategy
 
-from app.agents.valuation_projection import project_trimmed_valuation
+from app.agents.valuation_projection import (
+    CompactScenarioObservation,
+    CompactValuationObservation,
+    project_compact_valuation,
+    project_trimmed_valuation,
+)
 from app.contracts import (
     CodeDraft,
     CodeTask,
@@ -95,6 +100,13 @@ class ValuationAgent(Agent):
         )
         return project_trimmed_valuation(raw)
 
+    async def get_compact_valuation(self, symbol: str) -> CompactValuationObservation:
+        """Get the standard, small Agent-facing projection of Java valuation facts."""
+        raw = await self._call(
+            "get_compact_valuation", self._data_client.get_current_valuation(symbol)
+        )
+        return project_compact_valuation(raw)
+
     async def run_valuation_scenario(
         self, symbol: str, scenario_type: str, assumptions: dict[str, Any] | None = None
     ) -> ValuationEvaluation:
@@ -107,6 +119,21 @@ class ValuationAgent(Agent):
         return await self._call(
             "run_valuation_scenario",
             self._data_client.run_valuation_scenario(symbol, scenario_type, assumptions),
+        )
+
+    async def run_compact_valuation_scenario(
+        self, symbol: str, scenario_type: str
+    ) -> CompactScenarioObservation:
+        """Run one unsaved Java scenario and expose only report-facing fields."""
+        evaluation = await self.run_valuation_scenario(symbol, scenario_type)
+        scenario = evaluation.scenario
+        return CompactScenarioObservation(
+            scenario_type=scenario.scenario_type,
+            selected_model=scenario.selected_model,
+            valid=scenario.valid,
+            intrinsic_value_per_share=scenario.intrinsic_value_per_share,
+            margin_of_safety_price=scenario.margin_of_safety_price,
+            warnings=scenario.warnings,
         )
 
     async def delegate_reason(self, task: ReasonTask) -> ReasonResult:
@@ -220,28 +247,30 @@ class ValuationAgent(Agent):
     async def investigate(self, question: str, symbol: str) -> ValuationReport:
         """Investigate {question} for {symbol} using evidence first.
 
-        Call get_current_valuation(symbol) first; it is the only authority for
+        Call get_compact_valuation(symbol) first; it is the only authority for
         prices, intrinsic values, model choices, and assumptions. Do not call
-        draft_python, get_company_snapshot, get_financial_history, or
+        get_current_valuation, draft_python, get_company_snapshot, get_financial_history, or
         solve_market_implied_assumptions in this bounded acceptance run.
 
-        Inspect Java's selected model, data quality, diagnostics, warnings, and
-        already-published scenarios. If you determine there is a material
+        Inspect Java's selected model, material_warnings, and already-published
+        compact scenarios. If you determine there is a material
         evidence gap, call delegate_reason exactly once with a non-numerical
         description of that deterministic evidence and the question. Its proposal
         is untrusted: never copy a number from it and decide yourself whether to
         use it. If it fails or is empty, continue from Java evidence and state an
         uncertainty sourced to Java. Do not call Coder or Gemma.
 
-        Run at most one additional Java scenario, and only if it resolves a
+        Run at most one additional Java scenario through
+        run_compact_valuation_scenario(symbol, "BEAR") or "BULL", and only if it resolves a
         distinct gap not already covered by current Java scenarios. It must be
         BEAR or BULL and must not include invented assumptions. Never call a
         scenario merely to demonstrate tool use.
 
         Return only through native return_result(ValuationReport(...)) from an
-        execute_python cell. Include the Java scenarios, and create Evidence
-        records for currentPrice plus every scenario intrinsic_value_per_share;
-        each Evidence must use its exact Java tool-result source_path and value.
+        execute_python cell. Convert each compact scenario to ValuationScenario
+        without changing any field. Include Evidence records for current_price
+        plus every scenario intrinsic_value_per_share; each Evidence must use its
+        exact compact tool-result source_path and value.
         Do not put numerical values in conclusion or uncertainty prose. Make the
         primary conclusion a qualitative comparison supported by Java evidence.
         Include Java data-quality/diagnostic uncertainty, tool_calls, trace_id,

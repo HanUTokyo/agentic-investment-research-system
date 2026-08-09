@@ -40,7 +40,7 @@ async def main() -> None:
         unsupported = unsupported_numerical_claim_count(report)
         strict = (
             any(
-                item.tool_name == "get_current_valuation" and item.success
+                item.tool_name == "get_compact_valuation" and item.success
                 for item in agent.tool_calls
             )
             and len(agent.reason_results) <= 1

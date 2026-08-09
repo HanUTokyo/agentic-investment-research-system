@@ -89,3 +89,20 @@ async def test_compact_projection_uses_only_authoritative_snapshot_fields() -> N
     assert compact.symbol == raw.symbol
     assert compact.base_value == raw.overview["baseValue"]
     assert compact.selected_model == raw.selected_model
+
+
+@pytest.mark.asyncio
+async def test_compact_agent_tools_hide_full_java_dto() -> None:
+    client = MockStockPlatformClient(Path("fixtures/stock_platform"))
+    agent = ValuationAgent(client, llm=MagicMock())
+
+    compact = await agent.get_compact_valuation("demo")
+    scenario = await agent.run_compact_valuation_scenario("demo", "BEAR")
+
+    assert compact.scenarios
+    assert "projection" not in compact.model_dump()
+    assert scenario.scenario_type == "BEAR"
+    assert [item.tool_name for item in agent.tool_calls] == [
+        "get_compact_valuation",
+        "run_valuation_scenario",
+    ]
