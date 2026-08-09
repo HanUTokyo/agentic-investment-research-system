@@ -155,6 +155,38 @@ class ReasonResult(ContractModel):
     trusted_for_numerical_claims: bool = False
 
 
+class NextActionDecision(ContractModel):
+    """A deliberately small controller decision for the Phase 1B dispatcher."""
+
+    action: Literal["RUN_SCENARIO", "DELEGATE_REASON", "FINALIZE"]
+    reason: str = Field(min_length=1, max_length=600)
+
+
+class RecoveryDecision(ContractModel):
+    """Bounded recovery choice; retained for a later probe, not auto-dispatched."""
+
+    action: Literal[
+        "REFETCH_EVIDENCE",
+        "RERUN_SCENARIO",
+        "RETRY_FINALIZATION",
+        "DELEGATE_REASON",
+    ]
+    reason: str = Field(min_length=1, max_length=600)
+
+
+class ValuationSynthesis(ContractModel):
+    """Qualitative controller output materialized against deterministic Java facts.
+
+    It intentionally contains no valuation figures.  The runtime attaches all
+    numerical fields and their evidence paths directly from Java observations.
+    """
+
+    conclusion: str = Field(min_length=1, max_length=1_200)
+    valuation_basis: str = Field(min_length=1, max_length=120)
+    primary_uncertainty: str = Field(min_length=1, max_length=800)
+    uncertainty_severity: Literal["low", "medium", "high"]
+
+
 class RecoveryPlan(ContractModel):
     """Bounded R1 proposal for a Controller-owned invariant recovery action."""
 
