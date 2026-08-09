@@ -7,7 +7,12 @@ from nooa import Agent
 from nooa.config import CodeActConfig
 from nooa.decorators import strategy
 from nooa.strategies import CodeActStrategy
+from nooa.strategy_validation import InvariantError
 
+from app.agents.valuation_grounding import (
+    all_scenario_values_grounded,
+    unsupported_numerical_claim_count,
+)
 from app.agents.valuation_projection import (
     CompactScenarioObservation,
     CompactValuationObservation,
@@ -44,6 +49,12 @@ class ValuationReasoningClient(Protocol):
     async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Any: ...
 
 
+def _initial_valuation_required(agent: Any, _result: Any, _call: Any) -> None:
+    """NOOA postcondition: enforce lifecycle and numerical-grounding invariants."""
+    if isinstance(agent, ValuationAgent):
+        agent.validate_final_report(_result)
+
+
 class ValuationAgent(Agent):
     """A valuation specialist.
 
@@ -69,11 +80,40 @@ class ValuationAgent(Agent):
         self.reason_results: list[ReasonResult] = []
         self._reason_calls = 0
         self._scenario_calls = 0
+        self._initial_valuation_loaded = False
 
     @property
     def scenario_call_count(self) -> int:
         """Number of Java scenario evaluations attempted in this research run."""
         return self._scenario_calls
+
+    @property
+    def initial_valuation_loaded(self) -> bool:
+        """Whether this research run has successfully observed Java valuation evidence."""
+        return self._initial_valuation_loaded
+
+    def validate_can_finalize(self) -> None:
+        """Reject illegal final state; NOOA feeds this invariant error back to the model."""
+        if not self.initial_valuation_loaded:
+            raise InvariantError(
+                "Cannot finalize before initial valuation evidence is collected. "
+                "Call get_compact_valuation(symbol) before return_result."
+            )
+
+    def validate_final_report(self, report: ValuationReport) -> None:
+        """Reject a typed but ungrounded report before NOOA finalizes the run."""
+        self.validate_can_finalize()
+        unsupported = unsupported_numerical_claim_count(report)
+        if unsupported:
+            raise InvariantError(
+                f"Cannot finalize: report has {unsupported} unsupported numerical prose claim(s). "
+                "Remove numerical prose or add deterministic Java Evidence."
+            )
+        if not all_scenario_values_grounded(report):
+            raise InvariantError(
+                "Cannot finalize: every scenario intrinsic value must have an Evidence "
+                "source_path containing intrinsic_value_per_share and its Java value."
+            )
 
     async def get_company_snapshot(self, symbol: str) -> CompanySnapshot:
         """Get the current Java-platform valuation and, when held, portfolio context."""
@@ -105,7 +145,9 @@ class ValuationAgent(Agent):
         raw = await self._call(
             "get_compact_valuation", self._data_client.get_current_valuation(symbol)
         )
-        return project_compact_valuation(raw)
+        observation = project_compact_valuation(raw)
+        self._initial_valuation_loaded = True
+        return observation
 
     async def run_valuation_scenario(
         self, symbol: str, scenario_type: str, assumptions: dict[str, Any] | None = None
@@ -242,7 +284,14 @@ class ValuationAgent(Agent):
         return result
 
     @strategy(
-        CodeActStrategy(config=CodeActConfig(max_iterations=6, max_retries=1, max_tokens=1536))
+        CodeActStrategy(
+            config=CodeActConfig(
+                max_iterations=6,
+                max_retries=2,
+                max_tokens=1536,
+                postconditions=(_initial_valuation_required,),
+            )
+        )
     )
     async def investigate(self, question: str, symbol: str) -> ValuationReport:
         """Investigate {question} for {symbol} using evidence first.

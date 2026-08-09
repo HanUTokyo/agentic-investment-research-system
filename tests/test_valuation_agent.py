@@ -2,12 +2,13 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from nooa.strategy_validation import InvariantError
 
 from app.agents import ValuationAgent
 from app.agents.valuation_projection import project_compact_valuation
 from app.clients.ai_router import RoutedCompletion
 from app.clients.mock_stock_platform import MockStockPlatformClient
-from app.contracts import CodeDraft, CodeTask, ReasonTask, ValuationSnapshot
+from app.contracts import CodeDraft, CodeTask, ReasonTask, ValuationReport, ValuationSnapshot
 
 
 @pytest.mark.asyncio
@@ -106,3 +107,35 @@ async def test_compact_agent_tools_hide_full_java_dto() -> None:
         "get_compact_valuation",
         "run_valuation_scenario",
     ]
+
+
+@pytest.mark.asyncio
+async def test_finalization_requires_initial_compact_valuation_evidence() -> None:
+    client = MockStockPlatformClient(Path("fixtures/stock_platform"))
+    agent = ValuationAgent(client, llm=MagicMock())
+
+    with pytest.raises(InvariantError, match="get_compact_valuation"):
+        agent.validate_can_finalize()
+
+    await agent.get_compact_valuation("demo")
+    agent.validate_can_finalize()
+
+
+@pytest.mark.asyncio
+async def test_finalization_rejects_unsupported_numerical_prose() -> None:
+    client = MockStockPlatformClient(Path("fixtures/stock_platform"))
+    agent = ValuationAgent(client, llm=MagicMock())
+    await agent.get_compact_valuation("demo")
+    report = ValuationReport(
+        symbol="DEMO",
+        conclusion="The value is 42.",
+        valuation_basis="FCFE",
+        engine_version="v1",
+        scenario_results=[],
+        evidence=[],
+        trace_id="test",
+        generated_at=agent.report_timestamp(),
+    )
+
+    with pytest.raises(InvariantError, match="unsupported numerical"):
+        agent.validate_final_report(report)
