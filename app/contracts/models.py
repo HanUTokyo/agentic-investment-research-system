@@ -138,6 +138,8 @@ class ChatTask(ContractModel):
 
 class WorkerResult(ContractModel):
     ok: bool
+    http_success: bool
+    content_empty: bool
     content: str | None = None
     error_type: str | None = None
     latency_ms: float | None = None

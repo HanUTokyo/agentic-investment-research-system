@@ -32,6 +32,7 @@ async def test_explicit_delegations_are_typed_and_serial_when_awaited() -> None:
 
     assert router.calls == ["reason", "code", "chat"]
     assert all(result.ok for result in [reason, code, chat])
+    assert all(result.http_success and not result.content_empty for result in [reason, code, chat])
     assert [item.route_hint for item in controller.worker_trace] == ["reason", "code", "chat"]
 
 
@@ -46,6 +47,8 @@ async def test_empty_worker_content_is_returned_as_typed_failure() -> None:
 
     assert result.ok is False
     assert result.error_type == "empty_content"
+    assert result.http_success is True
+    assert result.content_empty is True
 
 
 @pytest.mark.asyncio

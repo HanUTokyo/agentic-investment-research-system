@@ -35,6 +35,8 @@ class SerialDelegationController(Agent):
         if self._reason_calls > 1:
             result = WorkerResult(
                 ok=False,
+                http_success=False,
+                content_empty=True,
                 error_type="reason_worker_attempt_limit_exceeded",
                 route_hint="reason",
             )
@@ -65,6 +67,8 @@ class SerialDelegationController(Agent):
             content = completion.content.strip()
             result = WorkerResult(
                 ok=bool(content),
+                http_success=True,
+                content_empty=not bool(content),
                 content=content or None,
                 error_type=None if content else "empty_content",
                 latency_ms=completion.latency_ms,
@@ -74,6 +78,8 @@ class SerialDelegationController(Agent):
         except Exception as exc:  # Worker failure is typed evidence for controller.
             result = WorkerResult(
                 ok=False,
+                http_success=False,
+                content_empty=True,
                 error_type=type(exc).__name__,
                 latency_ms=(perf_counter() - started) * 1000,
                 route_hint=route_hint,

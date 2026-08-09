@@ -10,5 +10,6 @@ docker run -d --name agent-codeact-gateway --read-only --tmpfs /tmp:rw,noexec,no
   --env SANDBOX_STOCK_HOST="${SANDBOX_STOCK_HOST:-host.docker.internal}" \
   --env SANDBOX_CONTROLLER_HOST="${SANDBOX_CONTROLLER_HOST:-host.docker.internal}" \
   --env SANDBOX_UPSTREAM_TIMEOUT_SECONDS="${SANDBOX_UPSTREAM_TIMEOUT_SECONDS:-315}" \
+  --env EXPERIMENT_SYNTHETIC_TRACE="${EXPERIMENT_SYNTHETIC_TRACE:-0}" \
   agentic-investment-research-gateway >/dev/null
 docker network connect bridge agent-codeact-gateway

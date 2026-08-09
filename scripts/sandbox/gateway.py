@@ -63,6 +63,7 @@ class Gateway(BaseHTTPRequestHandler):
             upstream = connection.getresponse()
             data = upstream.read()
             self._log_request(alias, path, body, upstream.status)
+            self._log_synthetic_trace(alias, path, body, data, upstream.status)
             self.send_response(upstream.status)
             self.send_header("Content-Type", upstream.getheader("Content-Type", "application/json"))
             self.send_header("Content-Length", str(len(data)))
@@ -106,6 +107,45 @@ class Gateway(BaseHTTPRequestHandler):
                             if isinstance(item, dict)
                         ]
         print(json.dumps(summary, sort_keys=True), flush=True)
+
+    def _log_synthetic_trace(
+        self, alias: str, path: str, body: bytes, response: bytes, status: int
+    ) -> None:
+        """Opt-in raw trace for synthetic-only controller experiments.
+
+        Normal runs deliberately omit prompt and response content. This path is
+        enabled only by an explicit sandbox environment flag and only records
+        the experiment's non-sensitive arithmetic conversation.
+        """
+        if os.environ.get("EXPERIMENT_SYNTHETIC_TRACE") != "1" or alias not in {
+            "router-proxy",
+            "controller-proxy",
+        }:
+            return
+        try:
+            request_payload = json.loads(body)
+            response_payload = json.loads(response)
+        except (TypeError, UnicodeDecodeError, json.JSONDecodeError):
+            return
+        if not isinstance(request_payload, dict) or not isinstance(response_payload, dict):
+            return
+        print(
+            json.dumps(
+                {
+                    "event": "synthetic_model_trace",
+                    "alias": alias,
+                    "path": path,
+                    "http_success": 200 <= status < 300,
+                    "status": status,
+                    "route_hint": request_payload.get("route_hint"),
+                    "request_messages": request_payload.get("messages"),
+                    "response": response_payload,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            flush=True,
+        )
 
     @staticmethod
     def _allowed(alias: str, method: str, path: str) -> bool:
