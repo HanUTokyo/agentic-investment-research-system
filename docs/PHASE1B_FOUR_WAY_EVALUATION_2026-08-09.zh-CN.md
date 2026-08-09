@@ -2,7 +2,7 @@
 
 结论：这轮单次诊断实验没有证明“三 worker 多模型”比 Direct Ministral 的最终质量或可靠性更高。Direct Ministral 以约 32.6 秒完成了严格 typed decision、typed synthesis 与 grounding；NOOA + 三 worker 也完成，但耗时约 335.7 秒，且 R1 空响应、Coder 非 JSON。它证明了受控 worker 失败不会破坏数值 grounding，而不是证明多模型带来能力提升。
 
-完整机器可读原始轨迹（包括 synthetic prompt、raw completion、worker 状态和 schema 结果）在 [phase1b_four_way_synthetic_aapl_2026-08-09.json](/Users/kaihan/Desktop/projects/agentic-investment-research-system/eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json)。其中没有真实持仓、Java 数据库、密钥或个人路径。
+完整机器可读原始轨迹（包括 synthetic prompt、raw completion、worker 状态和 schema 结果）在[phase1b_four_way_synthetic_aapl_2026-08-09.json](../eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json)。其中没有真实持仓、Java 数据库、密钥或个人路径。
 
 ## 方法
 

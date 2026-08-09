@@ -6,10 +6,10 @@ This change fixes only Router connectivity. It does not change Ministral, the
 R1 prompt, `RecoveryPlan`, or the runtime-forced recovery strategy.
 
 The Router source service was not running. It is now started locally on
-`192.168.31.36:8000` with its existing `router.full.yaml` profile and forwards
-to the Mac mini Ollama service at `192.168.31.216:11434`. The restricted sandbox
+the configured Router base URL with its existing `router.full.yaml` profile and forwards
+to the configured local Ollama endpoint. The restricted sandbox
 still reaches only `router-proxy`; the gateway is attached to the service bridge
-and is configured to forward that alias to `192.168.31.36:8000`.
+and is configured to forward that alias to the configured Router base URL.
 
 ## Gateway correction
 

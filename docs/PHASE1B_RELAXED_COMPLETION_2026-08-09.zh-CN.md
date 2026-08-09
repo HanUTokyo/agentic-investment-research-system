@@ -1,8 +1,8 @@
 # Phase 1B 放宽完成性复跑
 
-本复跑的目的不是改写历史四形态结果，而是为原实验中未得到最终文本的两组提供可人工比较的最终输出。严格实验中的失败仍保留在 [原始四形态报告](/Users/kaihan/Desktop/projects/agentic-investment-research-system/docs/PHASE1B_FOUR_WAY_EVALUATION_2026-08-09.zh-CN.md)。
+本复跑的目的不是改写历史四形态结果，而是为原实验中未得到最终文本的两组提供可人工比较的最终输出。严格实验中的失败仍保留在[原始四形态报告](PHASE1B_FOUR_WAY_EVALUATION_2026-08-09.zh-CN.md)。
 
-完整原始 prompt、completion、NOOA trace 与最终报告在 [JSON artifact](/Users/kaihan/Desktop/projects/agentic-investment-research-system/eval/results/phase1b_relaxed_completion_2026-08-09.json)。所有内容来自冻结 synthetic AAPL case。
+完整原始 prompt、completion、NOOA trace 与最终报告在[JSON artifact](../eval/results/phase1b_relaxed_completion_2026-08-09.json)。所有内容来自冻结 synthetic AAPL case。
 
 ## 1. Direct Gemma：完整自由文本
 

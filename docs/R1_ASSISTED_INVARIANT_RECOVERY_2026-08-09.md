@@ -68,10 +68,10 @@ then be rerun before making a claim about whether R1 recovery planning helps.
 ## Verification
 
 ```text
-/Users/kaihan/.local/bin/uv run ruff check .
-/Users/kaihan/.local/bin/uv run ruff format --check .
-/Users/kaihan/.local/bin/uv run pyright
-/Users/kaihan/.local/bin/uv run pytest -q
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright
+uv run pytest -q
 ```
 
 All checks passed: Ruff, Pyright (0 errors), and pytest (39 passed, 1 skipped).

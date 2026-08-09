@@ -2,7 +2,7 @@
 
 结论：在同一份完整 synthetic Java valuation DTO 与同一问题下，三者都没有产生新的确定性数值；但自由文本基线没有 `ValuationReport`、evidence-path 校验或 unsupported-numerical-claim gate。它适合人类比较模型回答质量，不应替代 Phase 1B 的受控 Agent 路径。
 
-完整输入和逐字输出见 [machine-readable artifact](/Users/kaihan/Desktop/projects/agentic-investment-research-system/eval/results/raw_java_snapshot_three_model_2026-08-09.json)。输入是公开 synthetic AAPL fixture，不含任何真实持仓或私有 Java 数据。
+完整输入和逐字输出见 [machine-readable artifact](../eval/results/raw_java_snapshot_three_model_2026-08-09.json)。输入是公开 synthetic AAPL fixture，不含任何真实持仓或私有 Java 数据。
 
 ## 完全相同的输入形式
 
@@ -46,7 +46,7 @@ Gemma 在 token budget 边界停止于半句；没有被续写或修复。
 
 ## 与此前 Phase 1B Agent 的对比
 
-此前的 [四形态 Agent 对比](/Users/kaihan/Desktop/projects/agentic-investment-research-system/docs/PHASE1B_FOUR_WAY_EVALUATION_2026-08-09.zh-CN.md) 使用 compact typed observation、受限 action dispatcher、typed synthesis 和 grounding。其 Direct Ministral 成功用时 32.6s；NOOA + 三 worker 成功用时 335.7s；两者均为 `unsupported numerical claims = 0`。
+此前的[四形态 Agent 对比](PHASE1B_FOUR_WAY_EVALUATION_2026-08-09.zh-CN.md)使用 compact typed observation、受限 action dispatcher、typed synthesis 和 grounding。其 Direct Ministral 成功用时 32.6s；NOOA + 三 worker 成功用时 335.7s；两者均为 `unsupported numerical claims = 0`。
 
 这轮 raw-snapshot 的 Direct Ministral 用时相近（31.1s），但输出直接把 BULL scenario 当作市价溢价的原因，且加入了没有在 DTO 明示的杠杆猜测。由此单一 case 能支持的结论是：完整 DTO 直接提示可生成可读回答，但不提供足够的数值事实边界、结论可审计性和 action control；不能据此取代 Agent-facing typed contract。
 

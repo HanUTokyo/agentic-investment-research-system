@@ -12,6 +12,13 @@ Java Investment Platform -> FastAPI typed adapters -> NOOA specialist -> AI Rout
                               deterministic evidence
 ```
 
+### Relationship to the companion repositories
+
+- [Investment Research Portfolio Platform](https://github.com/HanUTokyo/Investment-Research-Portfolio-Platform) is the separate Java/Spring Boot deterministic source system. It owns portfolio accounting, fundamentals, FCFF/FCFE valuation, scenario evaluation, and business rules. This repository calls it only through read-only HTTP contracts; it never imports its code or opens its database.
+- [AI Router Classifier](https://github.com/HanUTokyo/ai-router-classifier) is the separate local model-routing service. It owns task classification and Ollama model selection. This repository uses its HTTP API and does not copy routing rules or classifier logic.
+
+This repository is therefore independently deployable and is not a nested extension of either companion repository.
+
 Why these components: LangGraph (Phase 2) owns durable stateful research workflows; NOOA owns specialist autonomy and iterative CodeAct; the Router owns local model selection; Java owns every financial calculation. LangChain, cloud models, RAG, direct database access, and trade execution are intentionally out of scope.
 
 ## Current capability

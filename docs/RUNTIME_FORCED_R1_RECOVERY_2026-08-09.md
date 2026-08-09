@@ -37,7 +37,7 @@ Command: `scripts/sandbox/run-codeact.sh -m app.sandbox_runtime_forced_r1_recove
 
 The gateway recorded an `OSError: [Errno 101] Network is unreachable` while
 forwarding the R1 request to its configured Router host. Direct checks after the
-run confirmed neither the local host nor `192.168.31.216:8000` was listening;
+run confirmed the configured local Router endpoint was not listening;
 the remote Ollama endpoint on port 11434 was available, but direct Ollama use is
 intentionally forbidden for this architecture.
 

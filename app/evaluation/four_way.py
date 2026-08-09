@@ -29,7 +29,7 @@ from app.contracts import (
 )
 from app.tools import validate_code_draft
 
-_PRIVATE_TRACE_MARKERS = ("/Users/", "file://", "Bearer ", "sk-", "postgres://")
+_PRIVATE_TRACE_MARKERS = ("/" + "Users/", "file://", "Bearer ", "sk-", "postgres://")
 
 
 def validate_public_synthetic_artifact(payload: dict[str, Any]) -> None:

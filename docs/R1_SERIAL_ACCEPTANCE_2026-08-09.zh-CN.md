@@ -7,7 +7,7 @@
 ## 运行设计
 
 - 并发：1；未启动其它 Agent 或模型请求。
-- Java 平台：Mac mini `192.168.31.216:8080`，仅经 Docker allowlist 网关访问。
+- Java 平台：由 `STOCK_PLATFORM_BASE_URL` 配置，仅经 Docker allowlist 网关访问。
 - Router：本机 `127.0.0.1:8000`，强制 `route_hint=reason`。
 - R1：`max_tokens=2048`。
 - 超时：Agent 300 秒、Router 上游 300 秒、Docker 网关上游 315 秒。

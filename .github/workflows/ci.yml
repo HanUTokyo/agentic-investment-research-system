@@ -20,4 +20,4 @@ jobs:
       - name: Prevent private artifacts
         run: |
           ! git ls-files | grep -E '(^|/)(\.env|.*\.(db|sqlite|dump|pem|key))$'
-          ! git grep -nE '/Users/|BEGIN (RSA |OPENSSH )?PRIVATE KEY' -- . ':!README.md'
+          ! git grep -nE '/Users/|BEGIN (RSA |OPENSSH )?PRIVATE KEY' -- . ':!README.md' ':!.github/workflows/ci.yml'

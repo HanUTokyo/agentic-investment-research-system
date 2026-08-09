@@ -109,7 +109,7 @@ Router 根据自己的配置选择本地 Ollama 模型。Agent 不包含、也�
 - 唯一临时可写区域：容器 `/tmp`；容器退出后删除
 - `agent-restricted` internal Docker network
 
-实际验证结果：根目录不可写、`/sandbox` 不可写、宿主 `/Users/kaihan` 不存在、连接外网 `1.1.1.1:53` 返回 `Network is unreachable`。
+实际验证结果：根目录不可写、`/sandbox` 不可写、宿主 home 目录不可见、连接外网返回 `Network is unreachable`。
 
 ### 2. Allowlist gateway
 
