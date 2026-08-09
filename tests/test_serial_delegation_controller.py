@@ -46,3 +46,15 @@ async def test_empty_worker_content_is_returned_as_typed_failure() -> None:
 
     assert result.ok is False
     assert result.error_type == "empty_content"
+
+
+@pytest.mark.asyncio
+async def test_reason_worker_cannot_be_retried_by_controller() -> None:
+    router = FakeRouter()
+    controller = SerialDelegationController(router, llm=object())  # type: ignore[arg-type]
+
+    await controller.delegate_reason(ReasonTask(prompt="first"))
+    retry = await controller.delegate_reason(ReasonTask(prompt="second"))
+
+    assert router.calls == ["reason"]
+    assert retry.error_type == "reason_worker_attempt_limit_exceeded"

@@ -11,7 +11,14 @@ from nooa.decorators import strategy
 from nooa.strategies import CodeActStrategy
 
 from app.clients import RouterClient
-from app.contracts import ChatTask, CodeTaskText, DelegationResult, ReasonTask, WorkerResult
+from app.contracts import (
+    ChatTask,
+    CodeTaskText,
+    DelegationResult,
+    ReasonDelegationResult,
+    ReasonTask,
+    WorkerResult,
+)
 
 
 class SerialDelegationController(Agent):
@@ -21,8 +28,18 @@ class SerialDelegationController(Agent):
         super().__init__(**kwargs)
         self._router = router
         self.worker_trace: list[WorkerResult] = []
+        self._reason_calls = 0
 
     async def delegate_reason(self, task: ReasonTask) -> WorkerResult:
+        self._reason_calls += 1
+        if self._reason_calls > 1:
+            result = WorkerResult(
+                ok=False,
+                error_type="reason_worker_attempt_limit_exceeded",
+                route_hint="reason",
+            )
+            self.worker_trace.append(result)
+            return result
         return await self._delegate("reason", task.prompt)
 
     async def delegate_code(self, task: CodeTaskText) -> WorkerResult:
@@ -42,7 +59,7 @@ class SerialDelegationController(Agent):
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0,
-                max_tokens=256,
+                max_tokens=1024 if route_hint == "reason" else 256,
                 route_hint=route_hint,
             )
             content = completion.content.strip()
@@ -75,5 +92,20 @@ class SerialDelegationController(Agent):
         WorkerResult has ok=False, raise RuntimeError with that worker's error_type.
         Otherwise call return_result(DelegationResult(...)) from Python. Do not
         write prose or manually return a result outside native return_result.
+        """
+        ...
+
+    @strategy(
+        CodeActStrategy(config=CodeActConfig(max_iterations=3, max_retries=1, max_tokens=512))
+    )
+    async def solve_reason_only(self) -> ReasonDelegationResult:
+        """Use exactly one worker and return only through native return_result.
+
+        Call execute_python once. In that Python cell call and await exactly:
+        `reason = await self.delegate_reason(ReasonTask(prompt="Return only the integer result of 17 * 25 + 8."))`.
+        Do not call delegate_code or delegate_chat. If reason.ok is false, raise
+        RuntimeError(reason.error_type or "reason worker failed"). Otherwise call
+        `return_result(ReasonDelegationResult(worker_answer=reason.content, final_answer="433"))`.
+        Do not emit prose and do not construct a result outside return_result.
         """
         ...

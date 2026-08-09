@@ -152,6 +152,11 @@ class DelegationResult(ContractModel):
     final_answer: str = Field(min_length=1)
 
 
+class ReasonDelegationResult(ContractModel):
+    worker_answer: str = Field(min_length=1)
+    final_answer: str = Field(min_length=1)
+
+
 class ValuationReport(ContractModel):
     symbol: str
     conclusion: str
