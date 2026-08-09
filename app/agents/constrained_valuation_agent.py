@@ -115,8 +115,19 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
         """
         ...
 
-    async def investigate_constrained(self, *, question: str, symbol: str) -> ValuationReport:
-        """Run the bounded Phase 1B decision loop against one tracked symbol."""
+    async def investigate_constrained(
+        self,
+        *,
+        question: str,
+        symbol: str,
+        require_initial_reason: bool = False,
+    ) -> ValuationReport:
+        """Run the bounded Phase 1B decision loop against one tracked symbol.
+
+        ``require_initial_reason`` is evaluation-only: it makes the optional R1
+        evidence-gap capability observable for a fair single-vs-multi ablation.
+        It is false in the production/default Phase 1B path.
+        """
 
         trace = self.phase1b_trace
         started = perf_counter()
@@ -133,6 +144,31 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
         )
 
         reason: ReasonResult | None = None
+        if require_initial_reason:
+            dispatched_at = perf_counter()
+            reason = await self.delegate_reason(
+                ReasonTask(
+                    prompt=(
+                        f"Question: {question}\n"
+                        "Given the Java-backed valuation warning set, identify one non-numerical "
+                        "assumption or evidence gap worth checking. Do not calculate or quote values. "
+                        f"Symbol: {compact.symbol}; model: {compact.selected_model}; "
+                        f"warnings: {compact.material_warnings}."
+                    )
+                )
+            )
+            trace.r1_calls += 1
+            trace.dispatcher_actions_total += 1
+            trace.record(
+                state="REASON_AVAILABLE" if reason.worker.ok else "REASON_UNAVAILABLE",
+                observation_type="ReasonResult",
+                decision_schema=None,
+                decision=None,
+                dispatcher_action="DELEGATE_REASON",
+                tool_result="success" if reason.worker.ok else reason.worker.error_type,
+                validation_result="valid" if reason.worker.ok else "worker_failure_visible",
+                latency_ms=(perf_counter() - dispatched_at) * 1000,
+            )
         additional_scenario: CompactScenarioObservation | None = None
         # Three legal decisions: optional worker, optional scenario, then final.
         for _iteration in range(1, 4):
@@ -387,12 +423,18 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
 
     @staticmethod
     def _state(scenario: CompactScenarioObservation | None, reason: ReasonResult | None) -> str:
-        if scenario is not None and reason is not None:
+        reason_available = reason is not None and reason.worker.ok
+        reason_unavailable = reason is not None and not reason.worker.ok
+        if scenario is not None and reason_available:
             return "SCENARIO_AND_REASON_AVAILABLE"
+        if scenario is not None and reason_unavailable:
+            return "SCENARIO_AND_REASON_UNAVAILABLE"
         if scenario is not None:
             return "SCENARIO_AVAILABLE"
-        if reason is not None:
+        if reason_available:
             return "REASON_AVAILABLE"
+        if reason_unavailable:
+            return "REASON_UNAVAILABLE"
         return "EVIDENCE_COLLECTED"
 
     @staticmethod

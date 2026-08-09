@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from datetime import UTC, datetime
 from time import perf_counter
 from uuid import uuid4
@@ -27,15 +28,24 @@ async def main() -> None:
     settings = get_settings()
     run_id = str(uuid4())
     stock, router = StockPlatformClient(settings), RouterClient(settings)
+    reasoning_enabled = os.getenv("PHASE1B_REASONING_ENABLED", "1") == "1"
+    require_initial_reason = os.getenv("PHASE1B_REQUIRE_INITIAL_REASON", "0") == "1"
+    if require_initial_reason and not reasoning_enabled:
+        raise RuntimeError("PHASE1B_REQUIRE_INITIAL_REASON requires PHASE1B_REASONING_ENABLED=1")
     agent = ConstrainedTypedValuationAgent(
         stock,
-        reasoning_client=router,
+        reasoning_client=router if reasoning_enabled else None,
         llm=build_nooa_controller_llm(settings),
     )
     started = perf_counter()
     try:
         report = await asyncio.wait_for(
-            agent.investigate_constrained(question=QUESTION, symbol="AAPL"), timeout=900
+            agent.investigate_constrained(
+                question=QUESTION,
+                symbol="AAPL",
+                require_initial_reason=require_initial_reason,
+            ),
+            timeout=900,
         )
         trace = agent.phase1b_trace
         unsupported = unsupported_numerical_claim_count(report)
@@ -76,10 +86,21 @@ async def main() -> None:
         await stock.aclose()
         await router.aclose()
 
+    reason_worker = agent.reason_results[0].worker if agent.reason_results else None
+
     print(
         json.dumps(
             {
                 "event": "phase1b_constrained_valuation_acceptance",
+                "evaluation_condition": (
+                    "ministral_plus_r1_evidence_gap_ablation"
+                    if require_initial_reason
+                    else (
+                        "controller_with_optional_reasoning"
+                        if reasoning_enabled
+                        else "single_ministral_controller"
+                    )
+                ),
                 "run_id": run_id,
                 "started_at": datetime.now(UTC).isoformat(),
                 "total_latency_ms": (perf_counter() - started) * 1000,
@@ -100,6 +121,13 @@ async def main() -> None:
                 },
                 "coder_calls": 0,
                 "gemma_calls": 0,
+                "reasoning_worker_enabled": reasoning_enabled,
+                "initial_reason_required": require_initial_reason,
+                "r1_http_success": reason_worker.http_success if reason_worker else None,
+                "r1_content_empty": reason_worker.content_empty if reason_worker else None,
+                "r1_success": reason_worker.ok if reason_worker else None,
+                "r1_latency_ms": reason_worker.latency_ms if reason_worker else None,
+                "r1_model": reason_worker.model if reason_worker else None,
                 **outcome,
             },
             ensure_ascii=False,

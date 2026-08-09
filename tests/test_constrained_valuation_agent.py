@@ -73,3 +73,45 @@ async def test_phase1b_dispatcher_bounds_reason_and_scenario_actions() -> None:
             None,
             scenario,
         )
+
+
+@pytest.mark.asyncio
+async def test_phase1b_evaluation_can_require_one_visible_reason_worker_call() -> None:
+    class ReasoningClient:
+        async def complete(self, _messages, **_kwargs):
+            from app.clients.ai_router import RoutedCompletion
+
+            return RoutedCompletion(
+                content="Review the warning source.",
+                route="reason",
+                model="deepseek-r1:8b",
+                latency_ms=1.0,
+                raw={},
+            )
+
+    class FinalizeImmediatelyAgent(ConstrainedTypedValuationAgent):
+        async def decide_next_action(self, _context):
+            return NextActionDecision(action="FINALIZE", reason="Evidence is sufficient.")
+
+        async def synthesize_valuation(self, _context):
+            return ValuationSynthesis(
+                conclusion="The evidence supports a qualitative conclusion.",
+                valuation_basis="FCFF",
+                primary_uncertainty="The warning source needs review.",
+                uncertainty_severity="medium",
+            )
+
+    client = MockStockPlatformClient(Path("fixtures/stock_platform"))
+    agent = FinalizeImmediatelyAgent(
+        client,
+        llm=MagicMock(),
+        reasoning_client=ReasoningClient(),
+    )
+
+    report = await agent.investigate_constrained(
+        question="Review the warning.", symbol="demo", require_initial_reason=True
+    )
+
+    assert report.symbol == "DEMO"
+    assert agent.phase1b_trace.r1_calls == 1
+    assert agent.reason_results[0].worker.ok is True
