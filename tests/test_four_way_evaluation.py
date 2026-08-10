@@ -120,6 +120,7 @@ def test_checked_in_evaluation_artifact_is_public_and_synthetic() -> None:
         Path("eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json"),
         Path("eval/results/raw_java_snapshot_three_model_2026-08-09.json"),
         Path("eval/results/phase1b_relaxed_completion_2026-08-09.json"),
+        Path("eval/results/phase1_evidence_sufficiency_synthetic_aapl_2026-08-10.json"),
     ):
         validate_public_synthetic_artifact(json.loads(path.read_text()))
 

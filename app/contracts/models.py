@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ContractModel(BaseModel):
@@ -167,9 +167,19 @@ class NextActionDecision(ContractModel):
         "DELEGATE_REASON",
         "DELEGATE_CODE",
         "DELEGATE_CHAT",
+        "REQUEST_EVIDENCE",
         "FINALIZE",
     ]
     reason: str = Field(min_length=1, max_length=600)
+    evidence_type: Literal["MARKET_INFORMATION"] | None = None
+
+    @model_validator(mode="after")
+    def validate_evidence_request(self) -> "NextActionDecision":
+        if self.action == "REQUEST_EVIDENCE" and self.evidence_type is None:
+            raise ValueError("REQUEST_EVIDENCE requires evidence_type")
+        if self.action != "REQUEST_EVIDENCE" and self.evidence_type is not None:
+            raise ValueError("evidence_type is only valid for REQUEST_EVIDENCE")
+        return self
 
 
 class NoRouterNextActionDecision(ContractModel):

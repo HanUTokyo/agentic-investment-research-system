@@ -202,6 +202,27 @@ The raw snapshot baselines are useful for human quality review, but they can int
 
 For auditability, every literal prompt and raw completion is preserved in [the four-shape artifact](eval/results/phase1b_four_way_synthetic_aapl_2026-08-09.json), [the raw-snapshot artifact](eval/results/raw_java_snapshot_three_model_2026-08-09.json), and [the completion-focused artifact](eval/results/phase1b_relaxed_completion_2026-08-09.json). The Chinese technical reports under `docs/` add the full failure trajectories and methodology.
 
+### Phase 1 close-out: evidence sufficiency
+
+The valuation fixture can establish a price-to-model gap, but it has no market-information source that could establish *why* the market assigns that price. This is a different control from numerical grounding: more reasoning cannot create missing facts.
+
+Two real, strictly serial sandbox runs used the same frozen AAPL compact valuation and the same Ministral Controller. Pattern A exposed no Router workers. Pattern B made the existing Router advisory pool available, but did not grant it market-data access. Both produced the same valid typed decision on their first Controller turn:
+
+```json
+{
+  "action": "REQUEST_EVIDENCE",
+  "evidence_type": "MARKET_INFORMATION",
+  "reason": "The valuation gap is established, but its cause is not established by the supplied deterministic evidence."
+}
+```
+
+| Pattern | Latency | Router delegations | Unsupported numerical claims | Unsupported causal claims | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Ministral only | 69.8s | 0 | 0 | 0 | `REQUEST_EVIDENCE(MARKET_INFORMATION)` |
+| Ministral + Router advisory pool | 19.1s | 0 | 0 | 0 | `REQUEST_EVIDENCE(MARKET_INFORMATION)` |
+
+In Pattern B the Controller correctly chose not to delegate: the worker pool had no new information capability, so no Router request or advisory was produced. The latency figures are one-off diagnostic measurements and include local model/cache effects; they are not a performance ranking. The key result is epistemic rather than speed: additional reasoning diversity did not remove the information deficit. Full synthetic prompts, raw completions, decisions, and validation results are in [the evidence-sufficiency artifact](eval/results/phase1_evidence_sufficiency_synthetic_aapl_2026-08-10.json); the methodology and the preserved initial schema-length failure are documented in [the Chinese technical report](docs/PHASE1_EVIDENCE_SUFFICIENCY_2026-08-10.zh-CN.md).
+
 ## Run
 
 ```bash

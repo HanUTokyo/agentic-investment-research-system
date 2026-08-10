@@ -108,6 +108,28 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
         ...
 
     @strategy(_PREDICT)
+    async def decide_evidence_sufficiency(self, context: str) -> NextActionDecision:
+        """Decide whether supplied deterministic evidence can answer the causal question.
+
+        The compact Java valuation establishes its price-to-value gap and its
+        valuation warnings. It does not establish why the market assigns the
+        observed price. Additional reasoning cannot manufacture missing
+        information. Do not claim growth expectations, market sentiment, brand
+        premium, ecosystem, innovation, risk premium, or mispricing as facts.
+
+        When the question asks why the market assigns its price and no market
+        evidence is present, return exactly REQUEST_EVIDENCE with
+        evidence_type=MARKET_INFORMATION and explain that the gap is established
+        but its cause is not. You may request one untrusted advisory first, but
+        advisory content is not factual evidence and cannot satisfy the missing
+        market-information requirement. Keep ``reason`` to one or two concise
+        sentences (under 300 characters).
+
+        {context}
+        """
+        ...
+
+    @strategy(_PREDICT)
     async def synthesize_valuation(self, context: str) -> ValuationSynthesis:
         """Create a qualitative valuation synthesis from the supplied Java facts.
 
@@ -514,6 +536,24 @@ class ConstrainedTypedValuationAgent(ValuationAgent):
     ) -> str:
         """Expose the stable, agent-facing decision observation for evaluation runners."""
         return self._decision_context(question, compact, scenario, reason, state)
+
+    @staticmethod
+    def decision_state(
+        scenario: CompactScenarioObservation | None, reason: ReasonResult | None
+    ) -> str:
+        """Expose the lifecycle label without exposing the dispatcher internals."""
+        return ConstrainedTypedValuationAgent._state(scenario, reason)
+
+    async def dispatch_decision(
+        self,
+        decision: NextActionDecision,
+        symbol: str,
+        compact: CompactValuationObservation,
+        reason: ReasonResult | None,
+        scenario: CompactScenarioObservation | None,
+    ) -> ReasonResult | CompactScenarioObservation | WorkerResult:
+        """Run one legal typed action for a bounded evaluation workflow."""
+        return await self._dispatch(decision, symbol, compact, reason, scenario)
 
     def build_synthesis_context(
         self,

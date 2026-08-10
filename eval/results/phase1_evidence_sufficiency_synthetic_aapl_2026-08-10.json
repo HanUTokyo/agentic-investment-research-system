@@ -1,0 +1,59 @@
+{
+  "event": "phase1_evidence_sufficiency_evaluation",
+  "case": "synthetic-aapl-phase1b-v1",
+  "controls": {
+    "market_information_access": false,
+    "web_access": false,
+    "router_route_hint": null,
+    "strict_serial_execution": true,
+    "controller_model": "ministral",
+    "fixture": "fixtures/eval/phase1b_aapl.json"
+  },
+  "shared_raw_prompt": "# Your task\nDecide whether supplied deterministic evidence can answer the causal question.\n\nThe compact Java valuation establishes its price-to-value gap and its valuation warnings. It does not establish why the market assigns the observed price. Additional reasoning cannot manufacture missing information. Do not claim growth expectations, market sentiment, brand premium, ecosystem, innovation, risk premium, or mispricing as facts.\n\nWhen the question asks why the market assigns its price and no market evidence is present, return exactly REQUEST_EVIDENCE with evidence_type=MARKET_INFORMATION and explain that the gap is established but its cause is not. You may request one untrusted advisory first, but advisory content is not factual evidence and cannot satisfy the missing market-information requirement. Keep `reason` to one or two concise sentences (under 300 characters).\n\nInput context: {\"additional_java_scenario\": null, \"evaluation_worker_advisories\": [], \"java_compact_valuation\": {\"base_value\": \"84.0\", \"bear_value\": \"57.59\", \"bull_value\": \"160.81\", \"current_price\": \"313.33\", \"engine_version\": \"synthetic-java-valuation-1.0.0\", \"material_warnings\": [\"FCFF cross-check is incomplete.\", \"High ROE may be distorted by buybacks or a small equity base.\"], \"scenarios\": [{\"intrinsic_value_per_share\": \"57.59\", \"scenario_type\": \"BEAR\", \"selected_model\": \"FCFE\", \"valid\": true}, {\"intrinsic_value_per_share\": \"84.0\", \"scenario_type\": \"BASE\", \"selected_model\": \"FCFE\", \"valid\": true}, {\"intrinsic_value_per_share\": \"160.81\", \"scenario_type\": \"BULL\", \"selected_model\": \"FCFE\", \"valid\": true}], \"selected_model\": \"FCFE\", \"symbol\": \"AAPL\"}, \"limits\": {\"chat_advisory_calls_remaining\": 1, \"code_advisory_calls_remaining\": 1, \"r1_calls_remaining\": 1, \"scenario_calls_remaining\": 1}, \"question\": \"Why is AAPL's current market price above the base intrinsic value, and what is the most important valuation uncertainty to investigate?\", \"reason_worker\": {\"available\": false, \"ok\": null, \"proposal\": null}, \"state\": \"EVIDENCE_COLLECTED\"}",
+  "results": [
+    {
+      "condition": "ministral_only",
+      "success": true,
+      "total_latency_ms": 69767.59,
+      "evidence_sufficiency_decision": {
+        "action": "REQUEST_EVIDENCE",
+        "evidence_type": "MARKET_INFORMATION",
+        "reason": "The Java valuation shows AAPL's current market price of $313.33 is significantly above its base intrinsic value of $84.00, but the deterministic evidence does not explain why the market assigns this premium. The material warnings (e.g., incomplete FCFF cross-check and potential ROE distortion) highlight data-quality uncertainties, but they do not address the causal reason for the price-to-value gap."
+      },
+      "raw_completion": "{\"action\":\"REQUEST_EVIDENCE\",\"reason\":\"The Java valuation shows AAPL's current market price of $313.33 is significantly above its base intrinsic value of $84.00, but the deterministic evidence does not explain why the market assigns this premium. The material warnings (e.g., incomplete FCFF cross-check and potential ROE distortion) highlight data-quality uncertainties, but they do not address the causal reason for the price-to-value gap.\",\"evidence_type\":\"MARKET_INFORMATION\"}",
+      "typed_schema_valid": true,
+      "final_lifecycle_state": "REQUESTED_MARKET_INFORMATION",
+      "unsupported_causal_claims": [],
+      "unsupported_numerical_claims": [],
+      "delegation_count": 0,
+      "selected_worker_or_router_trace": [],
+      "advisory_unsupported_causal_claims": [],
+      "scenario_calls": 0
+    },
+    {
+      "condition": "ministral_router_advisory",
+      "success": true,
+      "total_latency_ms": 19050.05,
+      "evidence_sufficiency_decision": {
+        "action": "REQUEST_EVIDENCE",
+        "evidence_type": "MARKET_INFORMATION",
+        "reason": "The Java valuation shows AAPL's current market price of $313.33 is significantly above its base intrinsic value of $84.00, but the deterministic evidence does not explain why the market assigns this premium. The material warnings (e.g., incomplete FCFF cross-check and potential ROE distortion) highlight data-quality uncertainties, but they do not address the causal reason for the price-to-value gap."
+      },
+      "raw_completion": "{\"action\":\"REQUEST_EVIDENCE\",\"reason\":\"The Java valuation shows AAPL's current market price of $313.33 is significantly above its base intrinsic value of $84.00, but the deterministic evidence does not explain why the market assigns this premium. The material warnings (e.g., incomplete FCFF cross-check and potential ROE distortion) highlight data-quality uncertainties, but they do not address the causal reason for the price-to-value gap.\",\"evidence_type\":\"MARKET_INFORMATION\"}",
+      "typed_schema_valid": true,
+      "final_lifecycle_state": "REQUESTED_MARKET_INFORMATION",
+      "unsupported_causal_claims": [],
+      "unsupported_numerical_claims": [],
+      "delegation_count": 0,
+      "selected_worker_or_router_trace": [],
+      "advisory_unsupported_causal_claims": [],
+      "scenario_calls": 0,
+      "router_note": "Router was available through the existing advisory boundary, but the Controller selected REQUEST_EVIDENCE before delegation. No worker output was produced or promoted to evidence."
+    }
+  ],
+  "diagnostic_pre_run": {
+    "status": "preserved_failure",
+    "failure": "NOOA structured validation exhausted after two attempts because the generated reason exceeded the existing 600-character cap.",
+    "resolution": "The evidence-sufficiency prompt was constrained to one or two sentences under 300 characters; no parser repair or output rewriting was used."
+  }
+}
