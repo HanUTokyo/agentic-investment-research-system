@@ -105,8 +105,13 @@ class ResearchEvidence(BaseModel):
 
     @model_validator(mode="after")
     def validate_authority(self) -> ResearchEvidence:
-        if self.numerical_authority == "deterministic_valuation" and self.source_type != "deterministic_valuation":
-            raise ValueError("deterministic numerical authority requires deterministic valuation evidence")
+        if (
+            self.numerical_authority == "deterministic_valuation"
+            and self.source_type != "deterministic_valuation"
+        ):
+            raise ValueError(
+                "deterministic numerical authority requires deterministic valuation evidence"
+            )
         if self.source_type == "specialist" and self.numerical_authority != "none":
             raise ValueError("specialist output cannot be numerical authority")
         if self.revenue_guidance is not None:
@@ -131,7 +136,10 @@ class ValuationAnalysisRequest(BaseModel):
     def distinct_evidence_ids(self) -> ValuationAnalysisRequest:
         if len(self.evidence_ids) != len(set(self.evidence_ids)):
             raise ValueError("valuation analysis evidence_ids must be unique")
-        if self.analysis_mode == "DEFAULT_TEMPLATE_PREVIEW" and self.assumption_application is not None:
+        if (
+            self.analysis_mode == "DEFAULT_TEMPLATE_PREVIEW"
+            and self.assumption_application is not None
+        ):
             raise ValueError("default template preview cannot apply an assumption")
         if (
             self.analysis_mode == "EVIDENCE_GROUNDED_OVERRIDE"
@@ -243,7 +251,9 @@ class ResearchCase(BaseModel):
             raise IllegalResearchTransition("case cannot select an action in its current state")
         if self.iteration_count >= self.max_iterations:
             raise ResearchIterationLimit("research iteration bound reached")
-        return self.model_copy(update={"pending_action": action, "iteration_count": self.iteration_count + 1})
+        return self.model_copy(
+            update={"pending_action": action, "iteration_count": self.iteration_count + 1}
+        )
 
     def record_execution(
         self,
@@ -251,13 +261,19 @@ class ResearchCase(BaseModel):
         evidence: tuple[ResearchEvidence, ...] = (),
         evidence_request_outcome: EvidenceRequestOutcome | None = None,
     ) -> ResearchCase:
-        if self.pending_action is None or execution.action.action_id != self.pending_action.action_id:
+        if (
+            self.pending_action is None
+            or execution.action.action_id != self.pending_action.action_id
+        ):
             raise IllegalResearchTransition("execution must match pending action")
         old = {item.evidence_id for item in self.evidence}
         new = {item.evidence_id for item in evidence}
         if old & new or len(new) != len(evidence):
             raise IllegalResearchTransition("evidence provenance may not be overwritten")
-        if evidence_request_outcome is not None and evidence_request_outcome.action_id != execution.action.action_id:
+        if (
+            evidence_request_outcome is not None
+            and evidence_request_outcome.action_id != execution.action.action_id
+        ):
             raise IllegalResearchTransition("evidence request outcome must match pending action")
         return self.model_copy(
             update={

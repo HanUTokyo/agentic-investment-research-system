@@ -36,7 +36,8 @@ def _action(**request_updates: object) -> ResearchAction:
     }
     request.update(request_updates)
     return ResearchAction(
-        action="REQUEST_VALUATION_ANALYSIS", reason="Assess operating outlook through Java.",
+        action="REQUEST_VALUATION_ANALYSIS",
+        reason="Assess operating outlook through Java.",
         valuation_analysis=request,
     )
 
@@ -66,8 +67,14 @@ def _preview(archetype: str = "MATURE_TECH_PLATFORM") -> dict[str, object]:
 
 
 class _ForecastClient:
-    def __init__(self, template: dict[str, object] | None = None, preview: dict[str, object] | None = None) -> None:
-        self.template = template or {"eligibility": "AVAILABLE", "suggestedArchetype": "MATURE_TECH_PLATFORM", "templateVersion": "forecast-3"}
+    def __init__(
+        self, template: dict[str, object] | None = None, preview: dict[str, object] | None = None
+    ) -> None:
+        self.template = template or {
+            "eligibility": "AVAILABLE",
+            "suggestedArchetype": "MATURE_TECH_PLATFORM",
+            "templateVersion": "forecast-3",
+        }
         self.preview = preview or _preview()
         self.calls: list[tuple[str, str]] = []
 
@@ -84,8 +91,15 @@ class _ForecastClient:
 async def test_dispatches_default_template_preview_and_preserves_originating_evidence() -> None:
     client = _ForecastClient()
     executor = ExplicitForecastExecutor(client)  # type: ignore[arg-type]
-    case = ResearchCase(query="q", objective="o", valuation_context={"symbol": "ACME"}, evidence=(_external_evidence(),))
-    updated = await ResearchDispatcher(valuation_analysis_executor=executor).dispatch(case.select(_action()))
+    case = ResearchCase(
+        query="q",
+        objective="o",
+        valuation_context={"symbol": "ACME"},
+        evidence=(_external_evidence(),),
+    )
+    updated = await ResearchDispatcher(valuation_analysis_executor=executor).dispatch(
+        case.select(_action())
+    )
 
     forecast = updated.evidence[-1]
     summary = json.loads(str(forecast.evidence.value))
@@ -95,7 +109,10 @@ async def test_dispatches_default_template_preview_and_preserves_originating_evi
     assert forecast.originating_evidence_ids == ("official-guidance",)
     assert forecast.provenance["originating_evidence_ids"] == "official-guidance"
     assert forecast.provenance["effective_input_fingerprint"].startswith("sha256:")
-    assert updated.executed_actions[-1].effective_input_fingerprint == forecast.provenance["effective_input_fingerprint"]
+    assert (
+        updated.executed_actions[-1].effective_input_fingerprint
+        == forecast.provenance["effective_input_fingerprint"]
+    )
     assert summary["scenarios"]["BASE"]["fcff"]["equityValue"] == 123
     assert updated.evidence[0].evidence_id == "official-guidance"
     assert updated.evidence[0].evidence.claim == "Issuer FY outlook"
@@ -113,7 +130,12 @@ def test_contract_allows_only_default_explicit_forecast_without_model_inputs() -
     with pytest.raises(ValidationError):
         _action(revenue_growth_rate=0.2)
     with pytest.raises(ValidationError):
-        ResearchAction(action="REQUEST_VALUATION_ANALYSIS", reason="x", valuation_analysis=_action().valuation_analysis, wacc=0.1)
+        ResearchAction(
+            action="REQUEST_VALUATION_ANALYSIS",
+            reason="x",
+            valuation_analysis=_action().valuation_analysis,
+            wacc=0.1,
+        )
 
 
 @pytest.mark.asyncio
@@ -124,10 +146,15 @@ async def test_rejects_nonexistent_or_nonexternal_originating_evidence() -> None
         await executor(empty, _action())
 
     deterministic = ResearchEvidence(
-        evidence_id="official-guidance", evidence={"claim": "java", "sourcePath": "java.x"},
-        source="Java", source_type="deterministic_valuation", numerical_authority="deterministic_valuation",
+        evidence_id="official-guidance",
+        evidence={"claim": "java", "sourcePath": "java.x"},
+        source="Java",
+        source_type="deterministic_valuation",
+        numerical_authority="deterministic_valuation",
     )
-    case = ResearchCase(query="q", objective="o", valuation_context={"symbol": "ACME"}, evidence=(deterministic,))
+    case = ResearchCase(
+        query="q", objective="o", valuation_context={"symbol": "ACME"}, evidence=(deterministic,)
+    )
     with pytest.raises(IllegalResearchTransition, match="external evidence"):
         await executor(case, _action())
 
@@ -136,8 +163,20 @@ async def test_rejects_nonexistent_or_nonexternal_originating_evidence() -> None
 @pytest.mark.parametrize(
     ("template", "preview", "message"),
     [
-        ({"eligibility": "INELIGIBLE", "suggestedArchetype": "MATURE_TECH_PLATFORM", "templateVersion": "forecast-3"}, None, "not eligible"),
-        ({"eligibility": "AVAILABLE", "templateVersion": "forecast-3"}, None, "lacks suggestedArchetype"),
+        (
+            {
+                "eligibility": "INELIGIBLE",
+                "suggestedArchetype": "MATURE_TECH_PLATFORM",
+                "templateVersion": "forecast-3",
+            },
+            None,
+            "not eligible",
+        ),
+        (
+            {"eligibility": "AVAILABLE", "templateVersion": "forecast-3"},
+            None,
+            "lacks suggestedArchetype",
+        ),
         (None, {"symbol": "ACME", "archetype": "MATURE_TECH_PLATFORM"}, "malformed Java"),
         (None, {**_preview(), "readiness": "NOT_READY"}, "not ready"),
     ],
@@ -146,7 +185,12 @@ async def test_rejects_ineligible_unready_and_malformed_java_responses(
     template: dict[str, object] | None, preview: dict[str, object] | None, message: str
 ) -> None:
     executor = ExplicitForecastExecutor(_ForecastClient(template, preview))  # type: ignore[arg-type]
-    case = ResearchCase(query="q", objective="o", valuation_context={"symbol": "ACME"}, evidence=(_external_evidence(),))
+    case = ResearchCase(
+        query="q",
+        objective="o",
+        valuation_context={"symbol": "ACME"},
+        evidence=(_external_evidence(),),
+    )
     with pytest.raises(IllegalResearchTransition, match=message):
         await executor(case, _action())
 
@@ -155,8 +199,15 @@ async def test_rejects_ineligible_unready_and_malformed_java_responses(
 async def test_rejects_identical_default_preview_as_duplicate_noop() -> None:
     client = _ForecastClient()
     executor = ExplicitForecastExecutor(client)  # type: ignore[arg-type]
-    initial = ResearchCase(query="q", objective="o", valuation_context={"symbol": "ACME"}, evidence=(_external_evidence(),))
-    updated = await ResearchDispatcher(valuation_analysis_executor=executor).dispatch(initial.select(_action()))
+    initial = ResearchCase(
+        query="q",
+        objective="o",
+        valuation_context={"symbol": "ACME"},
+        evidence=(_external_evidence(),),
+    )
+    updated = await ResearchDispatcher(valuation_analysis_executor=executor).dispatch(
+        initial.select(_action())
+    )
     with pytest.raises(IllegalResearchTransition, match="DUPLICATE_NOOP_ACTION"):
         await executor(updated, _action())
     assert client.calls == [
@@ -176,14 +227,26 @@ async def test_next_controller_iteration_sees_deterministic_forecast_evidence() 
             self.visible.append(tuple(item.evidence_id for item in case.evidence))
             if len(case.evidence) == 1:
                 return _action()
-            return ResearchAction(action="DELEGATE_SPECIALIST", reason="Forecast evidence received.")
+            return ResearchAction(
+                action="DELEGATE_SPECIALIST", reason="Forecast evidence received."
+            )
 
     controller = Controller()
     executor = ExplicitForecastExecutor(_ForecastClient())  # type: ignore[arg-type]
-    graph = build_research_graph(controller, ResearchDispatcher(valuation_analysis_executor=executor))
-    initial = ResearchCase(query="q", objective="o", valuation_context={"symbol": "ACME"}, evidence=(_external_evidence(),), max_iterations=2)
+    graph = build_research_graph(
+        controller, ResearchDispatcher(valuation_analysis_executor=executor)
+    )
+    initial = ResearchCase(
+        query="q",
+        objective="o",
+        valuation_context={"symbol": "ACME"},
+        evidence=(_external_evidence(),),
+        max_iterations=2,
+    )
     with pytest.raises(IllegalResearchTransition, match="no specialist"):
-        await graph.ainvoke({"case": initial}, config={"configurable": {"thread_id": "forecast-visible"}})
+        await graph.ainvoke(
+            {"case": initial}, config={"configurable": {"thread_id": "forecast-visible"}}
+        )
     assert controller.visible[0] == ("official-guidance",)
     assert len(controller.visible[1]) == 2
 
@@ -197,7 +260,8 @@ async def test_stock_client_sends_only_java_suggested_archetype(settings) -> Non
         return httpx.Response(200, json=_preview())
 
     client = StockPlatformClient(
-        settings, httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://stock.test")
+        settings,
+        httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://stock.test"),
     )
     await client.preview_explicit_forecast("acme", archetype="MATURE_TECH_PLATFORM")
     assert payloads == [{"archetype": "MATURE_TECH_PLATFORM"}]

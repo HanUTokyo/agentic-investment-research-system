@@ -23,7 +23,9 @@ def _history() -> FinancialHistory:
                 "fiscalPeriod": period,
                 "forecast": False,
                 "revenue": 100,
-                "fieldMetadata": {"revenue": {"sourceCode": "SEC_COMPANY_FACTS", "sourceDate": "2026-07-31"}},
+                "fieldMetadata": {
+                    "revenue": {"sourceCode": "SEC_COMPANY_FACTS", "sourceDate": "2026-07-31"}
+                },
             }
         )
     return FinancialHistory(symbol="AAPL", quarterly_fundamentals=rows)
@@ -35,7 +37,10 @@ def _action() -> ResearchAction:
         reason="Need the next reported revenue period.",
         request="Retrieve AAPL FY2026 Q4 SEC-reported revenue.",
         evidence_target=EvidenceRequestTarget(
-            evidence_type="SEC_REPORTED_REVENUE", symbol="AAPL", fiscal_year=2026, fiscal_period="Q4"
+            evidence_type="SEC_REPORTED_REVENUE",
+            symbol="AAPL",
+            fiscal_year=2026,
+            fiscal_period="Q4",
         ),
     )
 
@@ -43,7 +48,12 @@ def _action() -> ResearchAction:
 @pytest.mark.asyncio
 async def test_not_yet_available_request_persists_deterministic_outcome() -> None:
     availability = FiscalRevenueAvailabilityExecutor.availability_from_history("AAPL", _history())
-    case = ResearchCase(query="q", objective="o", valuation_context={"symbol": "AAPL"}, evidence_availability=(availability,))
+    case = ResearchCase(
+        query="q",
+        objective="o",
+        valuation_context={"symbol": "AAPL"},
+        evidence_availability=(availability,),
+    )
     executor = FiscalRevenueAvailabilityExecutor()
     updated = await ResearchDispatcher(evidence_executor=executor).dispatch(case.select(_action()))
 
@@ -63,7 +73,10 @@ async def test_availability_executor_rejects_available_or_untyped_requests() -> 
     available = _action().model_copy(
         update={
             "evidence_target": EvidenceRequestTarget(
-                evidence_type="SEC_REPORTED_REVENUE", symbol="AAPL", fiscal_year=2026, fiscal_period="Q3"
+                evidence_type="SEC_REPORTED_REVENUE",
+                symbol="AAPL",
+                fiscal_year=2026,
+                fiscal_period="Q3",
             )
         }
     )
@@ -88,7 +101,9 @@ async def test_controller_selected_limited_closure_requires_only_known_uncertain
         evidence=(forecast,),
         tracked_uncertainties=(
             ResearchUncertainty(
-                uncertainty_id="nwc", description="NWC remains limited.", source_evidence_id="forecast"
+                uncertainty_id="nwc",
+                description="NWC remains limited.",
+                source_evidence_id="forecast",
             ),
         ),
     )

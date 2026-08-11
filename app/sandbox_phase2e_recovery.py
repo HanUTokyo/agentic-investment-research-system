@@ -19,7 +19,8 @@ from app.research_case import IllegalResearchTransition, ResearchCase
 from app.research_graph import ResearchDispatcher
 
 _PHASE_2E_CASE = (
-    Path("artifacts") / "phase2e_acceptance_phase2e-20260811T072324Z-00b386a8"
+    Path("artifacts")
+    / "phase2e_acceptance_phase2e-20260811T072324Z-00b386a8"
     / "case_after_nwc_evidence.json"
 )
 
@@ -36,7 +37,11 @@ async def run() -> Path:
     directory = Path("artifacts") / f"phase2e_recovery_{run_id}"
     directory.mkdir(parents=True, exist_ok=False)
     started = perf_counter()
-    summary: dict[str, Any] = {"run_id": run_id, "started_at": datetime.now(UTC), "status": "RUNNING"}
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "started_at": datetime.now(UTC),
+        "status": "RUNNING",
+    }
     _write(directory, "summary.json", summary)
     stock: StockPlatformClient | None = None
     try:

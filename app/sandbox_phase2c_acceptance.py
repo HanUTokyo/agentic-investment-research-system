@@ -89,7 +89,10 @@ async def run(symbol: str = "AAPL") -> Path:
                 "Use absent dated external operating evidence only if semantically warranted; then "
                 "reassess whether a bounded deterministic valuation analysis is needed."
             ),
-            valuation_context={"symbol": symbol.upper(), "selected_model": valuation.selected_model or ""},
+            valuation_context={
+                "symbol": symbol.upper(),
+                "selected_model": valuation.selected_model or "",
+            },
             evidence=initial,
             max_iterations=4,
         )
@@ -132,8 +135,14 @@ async def run(symbol: str = "AAPL") -> Path:
                 ),
             },
         )
-        _write(directory, "04_case_after_external_evidence.json", {"case": after_external.model_dump(mode="json")})
-        if not external or any("operating_information" not in item.claim_scope for item in external):
+        _write(
+            directory,
+            "04_case_after_external_evidence.json",
+            {"case": after_external.model_dump(mode="json")},
+        )
+        if not external or any(
+            "operating_information" not in item.claim_scope for item in external
+        ):
             summary["status"] = "STOPPED_NON_OPERATING_EVIDENCE"
             return directory
 
@@ -155,7 +164,11 @@ async def run(symbol: str = "AAPL") -> Path:
         _write(
             directory,
             "06_valuation_analysis_request.json",
-            {"request": decision_2.valuation_analysis.model_dump(mode="json") if decision_2.valuation_analysis else None},
+            {
+                "request": decision_2.valuation_analysis.model_dump(mode="json")
+                if decision_2.valuation_analysis
+                else None
+            },
         )
 
         step_files = {
@@ -185,7 +198,11 @@ async def run(symbol: str = "AAPL") -> Path:
                 ),
             },
         )
-        _write(directory, "11_case_after_forecast.json", {"case": after_forecast.model_dump(mode="json")})
+        _write(
+            directory,
+            "11_case_after_forecast.json",
+            {"case": after_forecast.model_dump(mode="json")},
+        )
 
         decision_started = perf_counter()
         decision_3 = await controller.decide(after_forecast)

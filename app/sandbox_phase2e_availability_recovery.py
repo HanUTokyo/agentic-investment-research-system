@@ -19,7 +19,8 @@ from app.research_case import ResearchCase, ResearchUncertainty
 from app.research_graph import ResearchDispatcher
 
 _SOURCE_CASE = (
-    Path("artifacts") / "phase2e_acceptance_phase2e-20260811T072324Z-00b386a8"
+    Path("artifacts")
+    / "phase2e_acceptance_phase2e-20260811T072324Z-00b386a8"
     / "case_after_nwc_evidence.json"
 )
 
@@ -48,7 +49,11 @@ async def run() -> Path:
     directory = Path("artifacts") / f"phase2e_availability_recovery_{run_id}"
     directory.mkdir(parents=True, exist_ok=False)
     started = perf_counter()
-    summary: dict[str, Any] = {"run_id": run_id, "started_at": datetime.now(UTC), "status": "RUNNING"}
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "started_at": datetime.now(UTC),
+        "status": "RUNNING",
+    }
     _write(directory, "summary.json", summary)
     stock: StockPlatformClient | None = None
     try:
@@ -67,7 +72,11 @@ async def run() -> Path:
             }
         )
         _write(directory, "initial_case.json", {"case": case.model_dump(mode="json")})
-        _write(directory, "evidence_availability.json", {"availability": availability.model_dump(mode="json")})
+        _write(
+            directory,
+            "evidence_availability.json",
+            {"availability": availability.model_dump(mode="json")},
+        )
 
         controller = ResearchCaseController(build_nooa_controller_llm(settings))
         first_started = perf_counter()
@@ -78,8 +87,12 @@ async def run() -> Path:
             {
                 "decision": first.model_dump(mode="json"),
                 "visible_evidence_ids": [item.evidence_id for item in case.evidence],
-                "visible_availability_ids": [item.availability_id for item in case.evidence_availability],
-                "tracked_uncertainty_ids": [item.uncertainty_id for item in case.tracked_uncertainties],
+                "visible_availability_ids": [
+                    item.availability_id for item in case.evidence_availability
+                ],
+                "tracked_uncertainty_ids": [
+                    item.uncertainty_id for item in case.tracked_uncertainties
+                ],
                 "latency_ms": (perf_counter() - first_started) * 1000,
             },
         )
@@ -107,7 +120,11 @@ async def run() -> Path:
                 "dispatch_latency_ms": (perf_counter() - dispatch_started) * 1000,
             },
         )
-        _write(directory, "case_after_availability_outcome.json", {"case": after_outcome.model_dump(mode="json")})
+        _write(
+            directory,
+            "case_after_availability_outcome.json",
+            {"case": after_outcome.model_dump(mode="json")},
+        )
 
         second_started = perf_counter()
         second = await controller.decide(after_outcome)
@@ -117,8 +134,12 @@ async def run() -> Path:
             {
                 "decision": second.model_dump(mode="json"),
                 "visible_evidence_ids": [item.evidence_id for item in after_outcome.evidence],
-                "visible_outcome_ids": [item.outcome_id for item in after_outcome.evidence_request_outcomes],
-                "tracked_uncertainty_ids": [item.uncertainty_id for item in after_outcome.tracked_uncertainties],
+                "visible_outcome_ids": [
+                    item.outcome_id for item in after_outcome.evidence_request_outcomes
+                ],
+                "tracked_uncertainty_ids": [
+                    item.uncertainty_id for item in after_outcome.tracked_uncertainties
+                ],
                 "latency_ms": (perf_counter() - second_started) * 1000,
             },
         )
@@ -127,7 +148,9 @@ async def run() -> Path:
             _write(directory, "final_case.json", {"case": final.model_dump(mode="json")})
             summary.update({"status": "CLOSED_WITH_LIMITATIONS", "final_status": final.status})
         else:
-            summary.update({"status": "REASSESSMENT_DID_NOT_CLOSE", "reassessment_action": second.action})
+            summary.update(
+                {"status": "REASSESSMENT_DID_NOT_CLOSE", "reassessment_action": second.action}
+            )
     except Exception as exc:
         summary.update({"status": "FAILED", "error_type": type(exc).__name__, "error": str(exc)})
     finally:

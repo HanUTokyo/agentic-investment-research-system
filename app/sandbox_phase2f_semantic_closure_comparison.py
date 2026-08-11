@@ -65,9 +65,13 @@ def _prompt(case: ResearchCase) -> str:
             }
             for item in case.evidence
         ],
-        "evidence_availability": [item.model_dump(mode="json") for item in case.evidence_availability],
+        "evidence_availability": [
+            item.model_dump(mode="json") for item in case.evidence_availability
+        ],
         "executed_actions": [item.action.model_dump(mode="json") for item in case.executed_actions],
-        "tracked_uncertainties": [item.model_dump(mode="json") for item in case.tracked_uncertainties],
+        "tracked_uncertainties": [
+            item.model_dump(mode="json") for item in case.tracked_uncertainties
+        ],
         "capability_semantics": {
             "DEFAULT_TEMPLATE_PREVIEW": "Uses only Java template defaults. Existing NWC evidence does not change its effective inputs; equivalent repeats are no-op.",
             "availability": "A later SEC reported-revenue period than the latest recorded period is not currently available.",
@@ -95,7 +99,11 @@ ResearchCase projection:
 def _evaluate(raw: str) -> dict[str, Any]:
     """Evaluate explicit final markers; never repair or infer a model decision."""
     lines = [line.strip() for line in raw.splitlines() if line.strip()]
-    choices = [line.removeprefix("FINAL_DECISION:").strip() for line in lines if line.startswith("FINAL_DECISION:")]
+    choices = [
+        line.removeprefix("FINAL_DECISION:").strip()
+        for line in lines
+        if line.startswith("FINAL_DECISION:")
+    ]
     uncertainties = [
         line.removeprefix("UNRESOLVED_UNCERTAINTY:").strip()
         for line in lines
@@ -104,14 +112,15 @@ def _evaluate(raw: str) -> dict[str, Any]:
     if len(choices) != 1 or choices[0] not in _CHOICES or len(uncertainties) != 1:
         return {"semantic_choice_valid": False, "reason": "missing_or_ambiguous_final_markers"}
     decision, uncertainty = choices[0], uncertainties[0]
-    valid_uncertainty = (decision == "FINALIZE_WITH_LIMITATIONS" and uncertainty == _EXPECTED_UNCERTAINTY) or (
-        decision != "FINALIZE_WITH_LIMITATIONS" and uncertainty == "NONE"
-    )
+    valid_uncertainty = (
+        decision == "FINALIZE_WITH_LIMITATIONS" and uncertainty == _EXPECTED_UNCERTAINTY
+    ) or (decision != "FINALIZE_WITH_LIMITATIONS" and uncertainty == "NONE")
     return {
         "semantic_choice_valid": valid_uncertainty,
         "decision": decision,
         "unresolved_uncertainty": uncertainty,
-        "oracle_match": decision == "FINALIZE_WITH_LIMITATIONS" and uncertainty == _EXPECTED_UNCERTAINTY,
+        "oracle_match": decision == "FINALIZE_WITH_LIMITATIONS"
+        and uncertainty == _EXPECTED_UNCERTAINTY,
     }
 
 
@@ -123,9 +132,19 @@ async def run() -> Path:
     case = ResearchCase.model_validate(source["case"])
     frozen_hash = _case_hash(case)
     prompt = _prompt(case)
-    _write(directory, "frozen_case.json", {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")})
+    _write(
+        directory,
+        "frozen_case.json",
+        {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")},
+    )
     _write(directory, "semantic_prompt.txt.json", {"prompt": prompt})
-    summary: dict[str, Any] = {"run_id": run_id, "status": "RUNNING", "frozen_case_sha256": frozen_hash, "models": list(_MODELS), "runs_per_model": _RUNS_PER_MODEL}
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "status": "RUNNING",
+        "frozen_case_sha256": frozen_hash,
+        "models": list(_MODELS),
+        "runs_per_model": _RUNS_PER_MODEL,
+    }
     _write(directory, "summary.json", summary)
     base_url = os.environ["MINISTRAL_CONTROLLER_BASE_URL"].rstrip("/")
     async with httpx.AsyncClient(base_url=base_url, timeout=360.0) as client:
@@ -133,11 +152,21 @@ async def run() -> Path:
         for model in _MODELS:
             for attempt in range(1, _RUNS_PER_MODEL + 1):
                 started = perf_counter()
-                record: dict[str, Any] = {"model": model, "attempt": attempt, "frozen_case_sha256": frozen_hash, "started_at": datetime.now(UTC)}
+                record: dict[str, Any] = {
+                    "model": model,
+                    "attempt": attempt,
+                    "frozen_case_sha256": frozen_hash,
+                    "started_at": datetime.now(UTC),
+                }
                 try:
                     response = await client.post(
                         "/chat/completions",
-                        json={"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0, "max_tokens": 2_048},
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0,
+                            "max_tokens": 2_048,
+                        },
                     )
                     response.raise_for_status()
                     payload = response.json()
@@ -145,7 +174,11 @@ async def run() -> Path:
                     record["raw_response"] = raw
                     record["evaluation"] = _evaluate(raw)
                 except Exception as exc:
-                    record["evaluation"] = {"semantic_choice_valid": False, "error_type": type(exc).__name__, "error": str(exc)}
+                    record["evaluation"] = {
+                        "semantic_choice_valid": False,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    }
                 record["latency_ms"] = (perf_counter() - started) * 1000
                 results[model].append(record)
                 _write(directory, f"{model.replace(':', '_')}_attempt_{attempt}.json", record)
@@ -153,8 +186,12 @@ async def run() -> Path:
                 _write(directory, "summary.json", summary)
     summary["condition_summary"] = {
         model: {
-            "valid_semantic_choices": sum(item["evaluation"].get("semantic_choice_valid", False) for item in records),
-            "oracle_matches": sum(item["evaluation"].get("oracle_match", False) for item in records),
+            "valid_semantic_choices": sum(
+                item["evaluation"].get("semantic_choice_valid", False) for item in records
+            ),
+            "oracle_matches": sum(
+                item["evaluation"].get("oracle_match", False) for item in records
+            ),
             "decisions": [item["evaluation"].get("decision") for item in records],
         }
         for model, records in results.items()

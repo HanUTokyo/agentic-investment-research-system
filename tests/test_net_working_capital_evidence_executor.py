@@ -19,7 +19,13 @@ def _forecast() -> ResearchEvidence:
         evidence=Evidence(
             claim="Java forecast",
             source_path="java.forecast",
-            value=json.dumps({"missing_inputs": ["changeInNetWorkingCapital is an explicit analyst assumption until the detailed indirect-CFO bridge is complete."]}),
+            value=json.dumps(
+                {
+                    "missing_inputs": [
+                        "changeInNetWorkingCapital is an explicit analyst assumption until the detailed indirect-CFO bridge is complete."
+                    ]
+                }
+            ),
         ),
         source="Java",
         source_type="deterministic_valuation",
@@ -38,7 +44,10 @@ def _row(index: int) -> dict[str, object]:
         "changeInWorkingCapital": str(index * 10),
         "revenue": "1000",
         "fieldMetadata": {
-            "changeInWorkingCapital": {"sourceCode": "SEC_COMPANY_FACTS", "sourceDate": "2026-01-01"},
+            "changeInWorkingCapital": {
+                "sourceCode": "SEC_COMPANY_FACTS",
+                "sourceDate": "2026-01-01",
+            },
             "revenue": {"sourceCode": "SEC_COMPANY_FACTS", "sourceDate": "2026-01-01"},
         },
     }
@@ -47,15 +56,23 @@ def _row(index: int) -> dict[str, object]:
 class _Stock:
     async def get_financial_history(self, symbol: str) -> FinancialHistory:
         assert symbol == "AAPL"
-        return FinancialHistory(symbol=symbol, quarterly_fundamentals=[_row(1), _row(2), _row(3), _row(4)])
+        return FinancialHistory(
+            symbol=symbol, quarterly_fundamentals=[_row(1), _row(2), _row(3), _row(4)]
+        )
 
 
 def _case() -> ResearchCase:
-    return ResearchCase(query="q", objective="o", valuation_context={"symbol": "AAPL"}, evidence=(_forecast(),))
+    return ResearchCase(
+        query="q", objective="o", valuation_context={"symbol": "AAPL"}, evidence=(_forecast(),)
+    )
 
 
-def _action(request: str = "Retrieve detailed net working capital evidence from Java historical fundamentals.") -> ResearchAction:
-    return ResearchAction(action="REQUEST_EVIDENCE", reason="Forecast caveat needs NWC evidence.", request=request)
+def _action(
+    request: str = "Retrieve detailed net working capital evidence from Java historical fundamentals.",
+) -> ResearchAction:
+    return ResearchAction(
+        action="REQUEST_EVIDENCE", reason="Forecast caveat needs NWC evidence.", request=request
+    )
 
 
 @pytest.mark.asyncio
@@ -69,7 +86,10 @@ async def test_java_nwc_evidence_is_provenance_complete_and_deterministically_de
     payload = json.loads(str(evidence[0].evidence.value))
     assert payload["period_count"] == 4
     assert payload["periods"][0]["reported_change_in_working_capital_rate"] == "0.01"
-    assert payload["periods"][-1]["change_in_working_capital_source"]["sourceCode"] == "SEC_COMPANY_FACTS"
+    assert (
+        payload["periods"][-1]["change_in_working_capital_source"]["sourceCode"]
+        == "SEC_COMPANY_FACTS"
+    )
 
 
 @pytest.mark.asyncio
@@ -97,7 +117,9 @@ async def test_nwc_rejects_duplicate_and_incomplete_java_history() -> None:
 
     class IncompleteStock:
         async def get_financial_history(self, symbol: str) -> FinancialHistory:
-            return FinancialHistory(symbol=symbol, quarterly_fundamentals=[_row(1), _row(2), _row(3)])
+            return FinancialHistory(
+                symbol=symbol, quarterly_fundamentals=[_row(1), _row(2), _row(3)]
+            )
 
     with pytest.raises(IllegalResearchTransition, match="four provenance"):
         await NetWorkingCapitalEvidenceExecutor(IncompleteStock())(_case(), _action())
@@ -113,11 +135,14 @@ async def test_controller_reassessment_receives_nwc_evidence_through_neutral_gra
             self.visible.append(tuple(item.evidence_id for item in case.evidence))
             if len(self.visible) == 1:
                 return _action()
-            return ResearchAction(action="DELEGATE_SPECIALIST", reason="Fresh semantic reassessment.")
+            return ResearchAction(
+                action="DELEGATE_SPECIALIST", reason="Fresh semantic reassessment."
+            )
 
     controller = Controller()
     graph = build_research_graph(
-        controller, ResearchDispatcher(evidence_executor=NetWorkingCapitalEvidenceExecutor(_Stock()))
+        controller,
+        ResearchDispatcher(evidence_executor=NetWorkingCapitalEvidenceExecutor(_Stock())),
     )
     with pytest.raises(IllegalResearchTransition, match="no specialist"):
         await graph.ainvoke(

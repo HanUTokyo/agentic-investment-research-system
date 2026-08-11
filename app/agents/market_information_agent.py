@@ -67,11 +67,15 @@ class MarketInformationAgent:
         client = self._client or httpx.AsyncClient(timeout=10.0)
         owned_client = self._client is None
         try:
-            response = await client.get(url, headers={"User-Agent": "agentic-investment-research-system/0.1"})
+            response = await client.get(
+                url, headers={"User-Agent": "agentic-investment-research-system/0.1"}
+            )
             response.raise_for_status()
             payload: dict[str, Any] = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise MarketInformationError(f"market source retrieval failed: {type(exc).__name__}") from exc
+            raise MarketInformationError(
+                f"market source retrieval failed: {type(exc).__name__}"
+            ) from exc
         finally:
             if owned_client:
                 await client.aclose()
@@ -83,8 +87,20 @@ class MarketInformationAgent:
             raise MarketInformationError("market source response lacks 52-week range") from exc
         retrieved_at = datetime.now(UTC)
         facts = (
-            MarketInformationFact(claim=f"{request.symbol.upper()} 52-week high", value=high, source_path="chart.result[0].meta.fiftyTwoWeekHigh", source_url=url, retrieved_at=retrieved_at),
-            MarketInformationFact(claim=f"{request.symbol.upper()} 52-week low", value=low, source_path="chart.result[0].meta.fiftyTwoWeekLow", source_url=url, retrieved_at=retrieved_at),
+            MarketInformationFact(
+                claim=f"{request.symbol.upper()} 52-week high",
+                value=high,
+                source_path="chart.result[0].meta.fiftyTwoWeekHigh",
+                source_url=url,
+                retrieved_at=retrieved_at,
+            ),
+            MarketInformationFact(
+                claim=f"{request.symbol.upper()} 52-week low",
+                value=low,
+                source_path="chart.result[0].meta.fiftyTwoWeekLow",
+                source_url=url,
+                retrieved_at=retrieved_at,
+            ),
         )
         return MarketInformationResult(
             findings=("A dated external 52-week trading range is now available for reassessment.",),
@@ -123,7 +139,8 @@ class MarketInformationAgent:
             tickers: dict[str, Any] = tickers_response.json()
             ticker = request.symbol.upper()
             row = next(
-                (item for item in tickers.values() if item.get("ticker", "").upper() == ticker), None
+                (item for item in tickers.values() if item.get("ticker", "").upper() == ticker),
+                None,
             )
             if not isinstance(row, dict) or not isinstance(row.get("cik_str"), int):
                 raise MarketInformationError("SEC ticker mapping is unavailable")
@@ -132,12 +149,16 @@ class MarketInformationAgent:
             facts_response.raise_for_status()
             payload: dict[str, Any] = facts_response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise MarketInformationError(f"SEC operating evidence retrieval failed: {type(exc).__name__}") from exc
+            raise MarketInformationError(
+                f"SEC operating evidence retrieval failed: {type(exc).__name__}"
+            ) from exc
         finally:
             if owned_client:
                 await client.aclose()
         try:
-            units = payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"]["units"]["USD"]
+            units = payload["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
             observations = [
                 item
                 for item in units
@@ -150,7 +171,9 @@ class MarketInformationAgent:
             latest = max(observations, key=lambda item: (str(item["filed"]), str(item["end"])))
             value = Decimal(str(latest["val"]))
         except (KeyError, TypeError, ValueError, ArithmeticError) as exc:
-            raise MarketInformationError("SEC response lacks a usable reported revenue observation") from exc
+            raise MarketInformationError(
+                "SEC response lacks a usable reported revenue observation"
+            ) from exc
         retrieved_at = datetime.now(UTC)
         period = f"{latest.get('fy', '')} {latest.get('fp', '')}".strip()
         fact = MarketInformationFact(

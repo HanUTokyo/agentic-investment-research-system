@@ -29,7 +29,9 @@ class ResearchController(Protocol):
 
 
 class EvidenceExecutor(Protocol):
-    async def __call__(self, case: ResearchCase, action: ResearchAction) -> Sequence[ResearchEvidence] | EvidenceExecutionResult: ...
+    async def __call__(
+        self, case: ResearchCase, action: ResearchAction
+    ) -> Sequence[ResearchEvidence] | EvidenceExecutionResult: ...
 
 
 class EvidenceExecutionResult:
@@ -45,11 +47,15 @@ class EvidenceExecutionResult:
 
 
 class ScenarioExecutor(Protocol):
-    async def __call__(self, case: ResearchCase, action: ResearchAction) -> Sequence[ResearchEvidence]: ...
+    async def __call__(
+        self, case: ResearchCase, action: ResearchAction
+    ) -> Sequence[ResearchEvidence]: ...
 
 
 class ValuationAnalysisExecutor(Protocol):
-    async def __call__(self, case: ResearchCase, action: ResearchAction) -> Sequence[ResearchEvidence]: ...
+    async def __call__(
+        self, case: ResearchCase, action: ResearchAction
+    ) -> Sequence[ResearchEvidence]: ...
 
 
 class ResearchDispatcher:
@@ -88,10 +94,10 @@ class ResearchDispatcher:
                 raise IllegalResearchTransition("RUN_SCENARIO executor is not configured")
             evidence = tuple(await self._scenario_executor(case, action))
             if any(item.source_type != "deterministic_valuation" for item in evidence):
-                raise IllegalResearchTransition("scenario executor must return deterministic valuation evidence")
-            return case.record_execution(
-                self._execution(action, started, evidence), evidence
-            )
+                raise IllegalResearchTransition(
+                    "scenario executor must return deterministic valuation evidence"
+                )
+            return case.record_execution(self._execution(action, started, evidence), evidence)
         if action.action == "REQUEST_VALUATION_ANALYSIS":
             if self._valuation_analysis_executor is None:
                 raise IllegalResearchTransition(
@@ -120,13 +126,25 @@ class ResearchDispatcher:
                         "FINALIZE limitations must reference tracked uncertainties"
                     )
                 executed = case.record_execution(
-                    ExecutedResearchAction(action=action, started_at=started, completed_at=datetime.now(UTC))
+                    ExecutedResearchAction(
+                        action=action, started_at=started, completed_at=datetime.now(UTC)
+                    )
                 )
                 return executed.model_copy(update={"status": "FINALIZED_WITH_LIMITATIONS"})
             report = case.final_report
-            if report is None or unsupported_numerical_claim_count(report) or not all_scenario_values_grounded(report):
-                raise GroundingFailure("FINALIZE requires a grounded ValuationReport attached by deterministic code")
-            executed = case.record_execution(ExecutedResearchAction(action=action, started_at=started, completed_at=datetime.now(UTC)))
+            if (
+                report is None
+                or unsupported_numerical_claim_count(report)
+                or not all_scenario_values_grounded(report)
+            ):
+                raise GroundingFailure(
+                    "FINALIZE requires a grounded ValuationReport attached by deterministic code"
+                )
+            executed = case.record_execution(
+                ExecutedResearchAction(
+                    action=action, started_at=started, completed_at=datetime.now(UTC)
+                )
+            )
             return executed.model_copy(update={"status": "FINALIZED"})
         raise IllegalResearchTransition(f"unsupported action {action.action}")
 
@@ -144,7 +162,9 @@ class ResearchDispatcher:
             started_at=started,
             completed_at=datetime.now(UTC),
             produced_evidence_ids=tuple(item.evidence_id for item in evidence),
-            effective_input_fingerprint=next(iter(fingerprints)) if len(fingerprints) == 1 else None,
+            effective_input_fingerprint=next(iter(fingerprints))
+            if len(fingerprints) == 1
+            else None,
         )
 
 
@@ -152,7 +172,12 @@ class GraphState(TypedDict):
     case: ResearchCase
 
 
-def build_research_graph(controller: ResearchController, dispatcher: ResearchDispatcher, *, checkpointer: MemorySaver | None = None):
+def build_research_graph(
+    controller: ResearchController,
+    dispatcher: ResearchDispatcher,
+    *,
+    checkpointer: MemorySaver | None = None,
+):
     async def controller_node(state: GraphState) -> dict[str, ResearchCase]:
         return {"case": state["case"].select(await controller.decide(state["case"]))}
 
@@ -160,7 +185,11 @@ def build_research_graph(controller: ResearchController, dispatcher: ResearchDis
         return {"case": await dispatcher.dispatch(state["case"])}
 
     def next_node(state: GraphState) -> str:
-        return END if state["case"].status in {"FINALIZED", "FINALIZED_WITH_LIMITATIONS"} else "controller"
+        return (
+            END
+            if state["case"].status in {"FINALIZED", "FINALIZED_WITH_LIMITATIONS"}
+            else "controller"
+        )
 
     graph = StateGraph(GraphState)
     graph.add_node("controller", controller_node)

@@ -40,9 +40,7 @@ class RevenueGuidanceForecastExecutor:
         self, case: ResearchCase, action: ResearchAction
     ) -> tuple[ResearchEvidence, ...]:
         request = self._request(case, action)
-        if any(
-            "evidence_grounded_override" in item.claim_scope for item in case.evidence
-        ):
+        if any("evidence_grounded_override" in item.claim_scope for item in case.evidence):
             raise IllegalResearchTransition(
                 "ResearchCase already contains an evidence-grounded forecast override"
             )
@@ -80,7 +78,11 @@ class RevenueGuidanceForecastExecutor:
                 source="Java Stock Platform explicit forecast",
                 source_type="deterministic_valuation",
                 retrieved_at=calculated_at,
-                claim_scope=("valuation_analysis", "explicit_forecast", "evidence_grounded_override"),
+                claim_scope=(
+                    "valuation_analysis",
+                    "explicit_forecast",
+                    "evidence_grounded_override",
+                ),
                 provenance={
                     "template_endpoint": f"/api/valuations/{symbol}/forecast-template",
                     "preview_endpoint": f"/api/valuations/{symbol}/forecast-preview",
@@ -111,19 +113,27 @@ class RevenueGuidanceForecastExecutor:
             or request.analysis_mode != "EVIDENCE_GROUNDED_OVERRIDE"
             or request.assumption_application != "YEAR_1_REVENUE_GUIDANCE"
         ):
-            raise IllegalResearchTransition("revenue guidance executor accepts its sole Phase 2D request")
+            raise IllegalResearchTransition(
+                "revenue guidance executor accepts its sole Phase 2D request"
+            )
         symbol = str(case.valuation_context.get("symbol", "")).strip().upper()
         if not symbol or request.symbol.strip().upper() != symbol:
-            raise IllegalResearchTransition("valuation analysis symbol must match valuation_context.symbol")
+            raise IllegalResearchTransition(
+                "valuation analysis symbol must match valuation_context.symbol"
+            )
         if len(request.evidence_ids) != 1:
-            raise IllegalResearchTransition("YEAR_1_REVENUE_GUIDANCE requires exactly one evidence id")
+            raise IllegalResearchTransition(
+                "YEAR_1_REVENUE_GUIDANCE requires exactly one evidence id"
+            )
         return request
 
     @staticmethod
     def _guidance(case: ResearchCase, evidence_ids: tuple[str, ...]) -> RevenueGuidance:
         item = next((item for item in case.evidence if item.evidence_id == evidence_ids[0]), None)
         if item is None:
-            raise IllegalResearchTransition("valuation analysis evidence_ids must exist in ResearchCase")
+            raise IllegalResearchTransition(
+                "valuation analysis evidence_ids must exist in ResearchCase"
+            )
         if item.source_type != "external" or item.numerical_authority != "external_source":
             raise IllegalResearchTransition("revenue guidance must be external-source evidence")
         if not item.provenance or item.revenue_guidance is None:
@@ -139,7 +149,10 @@ class RevenueGuidanceForecastExecutor:
     @staticmethod
     def _temporal_context(template: dict[str, Any], guidance: RevenueGuidance) -> dict[str, Any]:
         temporal = template.get("temporalContext")
-        if not isinstance(temporal, dict) or temporal.get("availability") != "FISCAL_LABEL_AVAILABLE":
+        if (
+            not isinstance(temporal, dict)
+            or temporal.get("availability") != "FISCAL_LABEL_AVAILABLE"
+        ):
             raise IllegalResearchTransition("forecast temporal context is unavailable")
         periods = temporal.get("forecastPeriods")
         if not isinstance(periods, list) or not periods:
@@ -151,12 +164,17 @@ class RevenueGuidanceForecastExecutor:
             or year_1.get("fiscalPeriod") != "FY"
             or year_1.get("fiscalYear") != guidance.target_fiscal_year
         ):
-            raise IllegalResearchTransition("revenue guidance fiscal year does not align to forecast Year-1")
+            raise IllegalResearchTransition(
+                "revenue guidance fiscal year does not align to forecast Year-1"
+            )
         return temporal
 
     @staticmethod
     def _override(
-        template: dict[str, Any], archetype: str, guidance: RevenueGuidance, temporal: dict[str, Any]
+        template: dict[str, Any],
+        archetype: str,
+        guidance: RevenueGuidance,
+        temporal: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         try:
             selected = template["templates"][archetype]
@@ -164,8 +182,14 @@ class RevenueGuidanceForecastExecutor:
             source_drivers = selected["scenarios"]["BASE"]["explicitOperatingDrivers"]
             starting_revenue = Decimal(str(base["startingRevenue"]))
         except (KeyError, TypeError, ArithmeticError) as exc:
-            raise IllegalResearchTransition("forecast template lacks deterministic BASE inputs") from exc
-        if starting_revenue <= 0 or not isinstance(source_drivers, list) or len(source_drivers) != 5:
+            raise IllegalResearchTransition(
+                "forecast template lacks deterministic BASE inputs"
+            ) from exc
+        if (
+            starting_revenue <= 0
+            or not isinstance(source_drivers, list)
+            or len(source_drivers) != 5
+        ):
             raise IllegalResearchTransition("forecast template has invalid revenue driver inputs")
         drivers = copy.deepcopy(source_drivers)
         if not isinstance(drivers[0], dict) or "revenueGrowthRate" not in drivers[0]:
@@ -197,8 +221,14 @@ class RevenueGuidanceForecastExecutor:
             return payload.get("scenarios", {}).get(scenario, {}).get(track, {}).get("equityValue")
 
         return {
-            "base_fcff_equity_value": {"default": value(baseline, "BASE", "fcff"), "adjusted": value(adjusted, "BASE", "fcff")},
-            "base_fcfe_equity_value": {"default": value(baseline, "BASE", "fcfe"), "adjusted": value(adjusted, "BASE", "fcfe")},
+            "base_fcff_equity_value": {
+                "default": value(baseline, "BASE", "fcff"),
+                "adjusted": value(adjusted, "BASE", "fcff"),
+            },
+            "base_fcfe_equity_value": {
+                "default": value(baseline, "BASE", "fcfe"),
+                "adjusted": value(adjusted, "BASE", "fcfe"),
+            },
         }
 
     def _observe(self, step: str, value: dict[str, Any]) -> None:

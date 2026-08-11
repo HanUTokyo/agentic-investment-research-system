@@ -36,7 +36,9 @@ class FiscalRevenueAvailabilityExecutor:
             and row.get("asOfDate")
         ]
         if not actual:
-            raise IllegalResearchTransition("Java historical fundamentals lack fiscal revenue availability")
+            raise IllegalResearchTransition(
+                "Java historical fundamentals lack fiscal revenue availability"
+            )
         latest = max(
             actual,
             key=lambda row: (int(row["fiscalYear"]), _PERIOD_ORDER[str(row["fiscalPeriod"])]),
@@ -65,7 +67,9 @@ class FiscalRevenueAvailabilityExecutor:
     async def __call__(self, case: ResearchCase, action: ResearchAction) -> EvidenceExecutionResult:
         target = action.evidence_target
         if action.action != "REQUEST_EVIDENCE" or target is None:
-            raise IllegalResearchTransition("availability executor requires a typed evidence target")
+            raise IllegalResearchTransition(
+                "availability executor requires a typed evidence target"
+            )
         if target.evidence_type != "SEC_REPORTED_REVENUE":
             raise IllegalResearchTransition("unsupported evidence availability target")
         availability = next(
@@ -78,7 +82,9 @@ class FiscalRevenueAvailabilityExecutor:
             None,
         )
         if availability is None:
-            raise IllegalResearchTransition("ResearchCase lacks deterministic evidence availability")
+            raise IllegalResearchTransition(
+                "ResearchCase lacks deterministic evidence availability"
+            )
         if not self._after_latest(target.fiscal_year, target.fiscal_period, availability):
             raise IllegalResearchTransition("requested evidence is not NOT_YET_AVAILABLE")
         self.invocation_count += 1

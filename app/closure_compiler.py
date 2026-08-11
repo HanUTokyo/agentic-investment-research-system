@@ -49,14 +49,20 @@ def parse_closure_markers(raw: str) -> ClosureDecision:
     so it is normalized before matching.  No decision value is inferred.
     """
     lines = [line.strip().strip("*").strip() for line in raw.splitlines() if line.strip()]
-    decisions = [line.removeprefix("CLOSURE_DECISION:").strip() for line in lines if line.startswith("CLOSURE_DECISION:")]
+    decisions = [
+        line.removeprefix("CLOSURE_DECISION:").strip()
+        for line in lines
+        if line.startswith("CLOSURE_DECISION:")
+    ]
     uncertainty_values = [
         line.removeprefix("REMAINING_UNCERTAINTIES:").strip()
         for line in lines
         if line.startswith("REMAINING_UNCERTAINTIES:")
     ]
     if len(decisions) != 1 or len(uncertainty_values) != 1:
-        raise ValueError("closure response requires exactly one decision and uncertainty declaration")
+        raise ValueError(
+            "closure response requires exactly one decision and uncertainty declaration"
+        )
     if uncertainty_values[0] == "NONE":
         ids: tuple[str, ...] = ()
     else:

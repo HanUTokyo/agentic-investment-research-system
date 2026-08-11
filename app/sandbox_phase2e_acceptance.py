@@ -19,7 +19,8 @@ from app.research_case import ResearchAction, ResearchCase
 from app.research_graph import ResearchDispatcher
 
 _PHASE_2C_CASE = (
-    Path("artifacts") / "phase2c_acceptance_phase2c-20260811T054700Z-0cab79b3"
+    Path("artifacts")
+    / "phase2c_acceptance_phase2c-20260811T054700Z-0cab79b3"
     / "11_case_after_forecast.json"
 )
 _PHASE_2C_NWC_DECISION = _PHASE_2C_CASE.parent / "12_controller_decision_3.json"
@@ -59,7 +60,10 @@ def _forecast_uncertainty(case: ResearchCase) -> dict[str, Any]:
 def _recorded_phase2c_nwc_decision() -> ResearchAction:
     payload = json.loads(_PHASE_2C_NWC_DECISION.read_text())
     action = ResearchAction.model_validate(payload["decision"])
-    if action.action != "REQUEST_EVIDENCE" or "working capital" not in (action.request or "").lower():
+    if (
+        action.action != "REQUEST_EVIDENCE"
+        or "working capital" not in (action.request or "").lower()
+    ):
         raise ValueError("canonical Phase 2C artifact does not contain its recorded NWC decision")
     return action
 
@@ -112,7 +116,10 @@ async def run(*, reuse_recorded_phase2c_nwc_decision: bool = False) -> Path:
                     else "this_phase2e_remote_controller_call"
                 ),
                 "is_nwc_request": decision.action == "REQUEST_EVIDENCE"
-                and any(token in (decision.request or "").lower() for token in ("working capital", "nwc", "indirect cfo")),
+                and any(
+                    token in (decision.request or "").lower()
+                    for token in ("working capital", "nwc", "indirect cfo")
+                ),
             },
         )
         if decision.action != "REQUEST_EVIDENCE" or not any(
@@ -124,7 +131,9 @@ async def run(*, reuse_recorded_phase2c_nwc_decision: bool = False) -> Path:
 
         executor = NetWorkingCapitalEvidenceExecutor(stock)
         dispatch_started = perf_counter()
-        updated = await ResearchDispatcher(evidence_executor=executor).dispatch(case.select(decision))
+        updated = await ResearchDispatcher(evidence_executor=executor).dispatch(
+            case.select(decision)
+        )
         produced = updated.evidence[len(case.evidence) :]
         _write(
             directory,
@@ -153,7 +162,10 @@ async def run(*, reuse_recorded_phase2c_nwc_decision: bool = False) -> Path:
                 "controller_state": "warm",
                 "latency_ms": (perf_counter() - reassessment_started) * 1000,
                 "repeated_nwc_request": reassessment.action == "REQUEST_EVIDENCE"
-                and any(token in (reassessment.request or "").lower() for token in ("working capital", "nwc", "indirect cfo")),
+                and any(
+                    token in (reassessment.request or "").lower()
+                    for token in ("working capital", "nwc", "indirect cfo")
+                ),
             },
         )
         summary.update(
@@ -163,7 +175,10 @@ async def run(*, reuse_recorded_phase2c_nwc_decision: bool = False) -> Path:
                 "nwc_evidence_records_added": len(produced),
                 "final_research_case_status": updated.status,
                 "repeated_nwc_request": reassessment.action == "REQUEST_EVIDENCE"
-                and any(token in (reassessment.request or "").lower() for token in ("working capital", "nwc", "indirect cfo")),
+                and any(
+                    token in (reassessment.request or "").lower()
+                    for token in ("working capital", "nwc", "indirect cfo")
+                ),
             }
         )
     except Exception as exc:

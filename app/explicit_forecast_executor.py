@@ -40,15 +40,24 @@ class ExplicitForecastExecutor:
                 "explicit forecast executor accepts REQUEST_VALUATION_ANALYSIS only"
             )
         request = action.valuation_analysis
-        if request.capability != "EXPLICIT_FORECAST" or request.analysis_mode != "DEFAULT_TEMPLATE_PREVIEW":
+        if (
+            request.capability != "EXPLICIT_FORECAST"
+            or request.analysis_mode != "DEFAULT_TEMPLATE_PREVIEW"
+        ):
             raise IllegalResearchTransition("unsupported valuation analysis request")
         symbol = str(case.valuation_context.get("symbol", "")).strip().upper()
         if not symbol or request.symbol.strip().upper() != symbol:
-            raise IllegalResearchTransition("valuation analysis symbol must match valuation_context.symbol")
+            raise IllegalResearchTransition(
+                "valuation analysis symbol must match valuation_context.symbol"
+            )
         by_id = {item.evidence_id: item for item in case.evidence}
         if any(evidence_id not in by_id for evidence_id in request.evidence_ids):
-            raise IllegalResearchTransition("valuation analysis evidence_ids must exist in ResearchCase")
-        if any(by_id[evidence_id].source_type != "external" for evidence_id in request.evidence_ids):
+            raise IllegalResearchTransition(
+                "valuation analysis evidence_ids must exist in ResearchCase"
+            )
+        if any(
+            by_id[evidence_id].source_type != "external" for evidence_id in request.evidence_ids
+        ):
             raise IllegalResearchTransition(
                 "valuation analysis must be motivated by external evidence"
             )
@@ -107,9 +116,7 @@ class ExplicitForecastExecutor:
         return archetype
 
     @staticmethod
-    def effective_input_fingerprint(
-        symbol: str, template: dict[str, Any], archetype: str
-    ) -> str:
+    def effective_input_fingerprint(symbol: str, template: dict[str, Any], archetype: str) -> str:
         version = template.get("templateVersion")
         if not isinstance(version, str) or not version:
             raise IllegalResearchTransition("forecast template lacks templateVersion")
@@ -144,11 +151,16 @@ class ExplicitForecastExecutor:
                 and provenance.get("archetype") == archetype
             ):
                 return True
-        return any(execution.effective_input_fingerprint == fingerprint for execution in case.executed_actions)
+        return any(
+            execution.effective_input_fingerprint == fingerprint
+            for execution in case.executed_actions
+        )
 
     @staticmethod
     def preview_summary(
-        preview: dict[str, Any], symbol: str, expected_archetype: str,
+        preview: dict[str, Any],
+        symbol: str,
+        expected_archetype: str,
         analysis_mode: str = "DEFAULT_TEMPLATE_PREVIEW",
     ) -> dict[str, Any]:
         required = ("forecastMode", "archetype", "readiness", "templateVersion", "scenarios")
@@ -231,7 +243,10 @@ class ExplicitForecastExecutor:
             or not discount_rates
             or not terminal_growth_rates
             or len(equity_values) != len(discount_rates)
-            or any(not isinstance(row, list) or len(row) != len(terminal_growth_rates) for row in equity_values)
+            or any(
+                not isinstance(row, list) or len(row) != len(terminal_growth_rates)
+                for row in equity_values
+            )
         ):
             raise IllegalResearchTransition("malformed Java sensitivity grid")
         middle_row = equity_values[len(equity_values) // 2]
@@ -247,8 +262,7 @@ class ExplicitForecastExecutor:
         if not isinstance(value, dict) or not isinstance(value.get("status"), str):
             raise IllegalResearchTransition("malformed Java reverse DCF")
         return {
-            key: value.get(key)
-            for key in ("status", "targetEquityValue", "impliedDiscountRate")
+            key: value.get(key) for key in ("status", "targetEquityValue", "impliedDiscountRate")
         }
 
     @staticmethod

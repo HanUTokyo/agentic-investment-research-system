@@ -17,7 +17,9 @@ class MarketInformationEvidenceExecutor:
         self._agent = agent
         self.invocation_count = 0
 
-    async def __call__(self, case: ResearchCase, action: ResearchAction) -> tuple[ResearchEvidence, ...]:
+    async def __call__(
+        self, case: ResearchCase, action: ResearchAction
+    ) -> tuple[ResearchEvidence, ...]:
         if action.action != "REQUEST_EVIDENCE":
             raise IllegalResearchTransition("market executor accepts REQUEST_EVIDENCE only")
         scope = (
@@ -26,22 +28,31 @@ class MarketInformationEvidenceExecutor:
             else "market_information"
         )
         if any(scope in item.claim_scope for item in case.evidence):
-            raise IllegalResearchTransition("identical market information request is already satisfied")
+            raise IllegalResearchTransition(
+                "identical market information request is already satisfied"
+            )
         symbol = str(case.valuation_context.get("symbol", "")).upper()
         if not symbol:
-            raise IllegalResearchTransition("market information request requires valuation_context.symbol")
+            raise IllegalResearchTransition(
+                "market information request requires valuation_context.symbol"
+            )
         self.invocation_count += 1
         result = await self._agent.collect(
             MarketInformationRequest(
                 symbol=symbol,
                 question=case.query,
                 information_need=action.request or "",
-                relevant_context={"objective": case.objective, "hypothesis": case.current_hypothesis or ""},
+                relevant_context={
+                    "objective": case.objective,
+                    "hypothesis": case.current_hypothesis or "",
+                },
             )
         )
         if not result.facts:
             raise IllegalResearchTransition("market specialist returned no factual evidence")
-        source_prefix = "external.sec" if result.source == "SEC company facts API" else "external.yahoo"
+        source_prefix = (
+            "external.sec" if result.source == "SEC company facts API" else "external.yahoo"
+        )
         return tuple(
             ResearchEvidence(
                 evidence=Evidence(

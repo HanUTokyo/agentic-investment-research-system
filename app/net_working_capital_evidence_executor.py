@@ -73,8 +73,12 @@ class NetWorkingCapitalEvidenceExecutor:
     @staticmethod
     def _validate_request(case: ResearchCase, action: ResearchAction) -> None:
         request = (action.request or "").lower()
-        if action.action != "REQUEST_EVIDENCE" or not any(marker in request for marker in _NWC_MARKERS):
-            raise IllegalResearchTransition("NWC executor accepts a bounded NWC REQUEST_EVIDENCE only")
+        if action.action != "REQUEST_EVIDENCE" or not any(
+            marker in request for marker in _NWC_MARKERS
+        ):
+            raise IllegalResearchTransition(
+                "NWC executor accepts a bounded NWC REQUEST_EVIDENCE only"
+            )
         if any("net_working_capital" in item.claim_scope for item in case.evidence):
             raise IllegalResearchTransition("NWC evidence request is already satisfied")
         forecast_payloads = [
@@ -83,8 +87,12 @@ class NetWorkingCapitalEvidenceExecutor:
             if "explicit_forecast" in item.claim_scope
             and item.source_type == "deterministic_valuation"
         ]
-        if not any(NetWorkingCapitalEvidenceExecutor._has_nwc_caveat(value) for value in forecast_payloads):
-            raise IllegalResearchTransition("NWC evidence requires a deterministic forecast NWC caveat")
+        if not any(
+            NetWorkingCapitalEvidenceExecutor._has_nwc_caveat(value) for value in forecast_payloads
+        ):
+            raise IllegalResearchTransition(
+                "NWC evidence requires a deterministic forecast NWC caveat"
+            )
 
     @staticmethod
     def _has_nwc_caveat(value: Any) -> bool:
@@ -111,7 +119,9 @@ class NetWorkingCapitalEvidenceExecutor:
                 change = Decimal(str(value))
                 sales = Decimal(str(revenue))
             except (InvalidOperation, ValueError) as exc:
-                raise IllegalResearchTransition("Java NWC history contains non-numerical values") from exc
+                raise IllegalResearchTransition(
+                    "Java NWC history contains non-numerical values"
+                ) from exc
             if sales == 0:
                 raise IllegalResearchTransition("Java NWC history contains zero revenue")
             metadata = row.get("fieldMetadata")
@@ -128,10 +138,14 @@ class NetWorkingCapitalEvidenceExecutor:
                     "revenue": str(sales),
                     "reported_change_in_working_capital_rate": str(change / sales),
                     "change_in_working_capital_source": source,
-                    "revenue_source": metadata.get("revenue") if isinstance(metadata, dict) else None,
+                    "revenue_source": metadata.get("revenue")
+                    if isinstance(metadata, dict)
+                    else None,
                 }
             )
         observations.sort(key=lambda item: str(item["as_of_date"]))
         if len(observations) < _MAX_PERIODS:
-            raise IllegalResearchTransition("Java NWC history requires four provenance-complete actual periods")
+            raise IllegalResearchTransition(
+                "Java NWC history requires four provenance-complete actual periods"
+            )
         return observations[-_MAX_PERIODS:]

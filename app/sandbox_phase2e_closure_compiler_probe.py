@@ -44,12 +44,21 @@ def _prompt(case: ResearchCase) -> str:
         "query": case.query,
         "objective": case.objective,
         "evidence": [
-            {"evidence_id": item.evidence_id, "claim": item.evidence.claim, "scope": item.claim_scope, "provenance": item.provenance}
+            {
+                "evidence_id": item.evidence_id,
+                "claim": item.evidence.claim,
+                "scope": item.claim_scope,
+                "provenance": item.provenance,
+            }
             for item in case.evidence
         ],
-        "evidence_availability": [item.model_dump(mode="json") for item in case.evidence_availability],
+        "evidence_availability": [
+            item.model_dump(mode="json") for item in case.evidence_availability
+        ],
         "executed_actions": [item.action.model_dump(mode="json") for item in case.executed_actions],
-        "tracked_uncertainties": [item.model_dump(mode="json") for item in case.tracked_uncertainties],
+        "tracked_uncertainties": [
+            item.model_dump(mode="json") for item in case.tracked_uncertainties
+        ],
         "capability_semantics": {
             "default_preview": "Uses Java template defaults only; equivalent repeats are deterministic no-op actions.",
             "nwc": "No legal capability currently consumes historical NWC observations into a forecast assumption.",
@@ -78,20 +87,38 @@ async def run() -> Path:
     if frozen_hash != _EXPECTED_HASH:
         raise RuntimeError(f"unexpected frozen case hash: {frozen_hash}")
     prompt = _prompt(case)
-    _write(directory, "frozen_case.json", {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")})
+    _write(
+        directory,
+        "frozen_case.json",
+        {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")},
+    )
     _write(directory, "semantic_prompt.json", {"prompt": prompt})
-    summary: dict[str, Any] = {"run_id": run_id, "status": "RUNNING", "frozen_case_sha256": frozen_hash, "attempts": _ATTEMPTS}
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "status": "RUNNING",
+        "frozen_case_sha256": frozen_hash,
+        "attempts": _ATTEMPTS,
+    }
     _write(directory, "summary.json", summary)
     base_url = os.environ["MINISTRAL_CONTROLLER_BASE_URL"].rstrip("/")
     async with httpx.AsyncClient(base_url=base_url, timeout=360.0) as client:
         results: list[dict[str, Any]] = []
         for attempt in range(1, _ATTEMPTS + 1):
             started = perf_counter()
-            record: dict[str, Any] = {"attempt": attempt, "frozen_case_sha256": frozen_hash, "started_at": datetime.now(UTC)}
+            record: dict[str, Any] = {
+                "attempt": attempt,
+                "frozen_case_sha256": frozen_hash,
+                "started_at": datetime.now(UTC),
+            }
             try:
                 response = await client.post(
                     "/chat/completions",
-                    json={"model": "ministral-3:8b", "messages": [{"role": "user", "content": prompt}], "temperature": 0, "max_tokens": 1_024},
+                    json={
+                        "model": "ministral-3:8b",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0,
+                        "max_tokens": 1_024,
+                    },
                 )
                 response.raise_for_status()
                 raw = str(response.json()["choices"][0]["message"]["content"])
@@ -113,7 +140,13 @@ async def run() -> Path:
                     }
                 )
             except Exception as exc:
-                record.update({"error_type": type(exc).__name__, "error": str(exc), "matches_expected_terminal": False})
+                record.update(
+                    {
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "matches_expected_terminal": False,
+                    }
+                )
             record["latency_ms"] = (perf_counter() - started) * 1000
             results.append(record)
             _write(directory, f"attempt_{attempt}.json", record)

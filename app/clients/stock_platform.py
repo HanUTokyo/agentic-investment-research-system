@@ -78,9 +78,7 @@ class StockPlatformClient:
 
     async def get_forecast_template(self, symbol: str) -> dict[str, Any]:
         """Read the Java-owned explicit-forecast template without mutating it."""
-        result = await self._read_json(
-            f"/api/valuations/{self._symbol(symbol)}/forecast-template"
-        )
+        result = await self._read_json(f"/api/valuations/{self._symbol(symbol)}/forecast-template")
         if not isinstance(result, dict):
             raise UpstreamProtocolError("forecast template response must be an object")
         return result

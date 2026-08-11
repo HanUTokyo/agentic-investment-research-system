@@ -47,22 +47,35 @@ async def run() -> Path:
     frozen_hash = _case_hash(case)
     if frozen_hash != _EXPECTED_HASH:
         raise RuntimeError(f"unexpected frozen case hash: {frozen_hash}")
-    _write(directory, "frozen_case.json", {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")})
-    summary: dict[str, Any] = {"run_id": run_id, "status": "RUNNING", "model": "ministral-3:8b", "frozen_case_sha256": frozen_hash, "attempts": _ATTEMPTS}
+    _write(
+        directory,
+        "frozen_case.json",
+        {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")},
+    )
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "status": "RUNNING",
+        "model": "ministral-3:8b",
+        "frozen_case_sha256": frozen_hash,
+        "attempts": _ATTEMPTS,
+    }
     _write(directory, "summary.json", summary)
     controller = ResearchCaseController(build_nooa_controller_llm(get_settings()))
     results: list[dict[str, Any]] = []
     for attempt in range(1, _ATTEMPTS + 1):
         started = perf_counter()
-        record: dict[str, Any] = {"attempt": attempt, "started_at": datetime.now(UTC), "frozen_case_sha256": frozen_hash}
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "started_at": datetime.now(UTC),
+            "frozen_case_sha256": frozen_hash,
+        }
         try:
             # Deliberately no case.select/dispatcher call: protocol reliability only.
             decision = await controller.decide(case)
             record["decision"] = decision.model_dump(mode="json")
-            record["matches_contract"] = (
-                decision.action == "FINALIZE"
-                and tuple(decision.unresolved_uncertainty_ids) == (_EXPECTED_UNCERTAINTY,)
-            )
+            record["matches_contract"] = decision.action == "FINALIZE" and tuple(
+                decision.unresolved_uncertainty_ids
+            ) == (_EXPECTED_UNCERTAINTY,)
         except Exception as exc:
             record["error_type"] = type(exc).__name__
             record["error"] = str(exc)

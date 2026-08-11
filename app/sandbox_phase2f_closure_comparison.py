@@ -51,7 +51,13 @@ def _assessment(action: ResearchAction) -> dict[str, Any]:
         "action": action.action,
         "matches_expected_action": action.action == _EXPECTED_ACTION,
         "correct_nwc_uncertainty": correct_uncertainty,
-        "continues_research": action.action in {"REQUEST_EVIDENCE", "REQUEST_VALUATION_ANALYSIS", "RUN_SCENARIO", "DELEGATE_SPECIALIST"},
+        "continues_research": action.action
+        in {
+            "REQUEST_EVIDENCE",
+            "REQUEST_VALUATION_ANALYSIS",
+            "RUN_SCENARIO",
+            "DELEGATE_SPECIALIST",
+        },
         "oracle_match": action.action == _EXPECTED_ACTION and correct_uncertainty,
     }
 
@@ -64,7 +70,11 @@ async def run() -> Path:
     source = json.loads(_SOURCE_CASE.read_text())
     case = ResearchCase.model_validate(source["case"])
     frozen_hash = _case_hash(case)
-    _write(directory, "frozen_case.json", {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")})
+    _write(
+        directory,
+        "frozen_case.json",
+        {"source": str(_SOURCE_CASE), "sha256": frozen_hash, "case": case.model_dump(mode="json")},
+    )
     _write(
         directory,
         "evaluation_oracle.json",
@@ -119,7 +129,9 @@ async def run() -> Path:
     for model, records in results.items():
         summary.setdefault("condition_summary", {})[model] = {
             "valid": sum(item["assessment"]["schema_valid"] for item in records),
-            "oracle_matches": sum(item["assessment"].get("oracle_match", False) for item in records),
+            "oracle_matches": sum(
+                item["assessment"].get("oracle_match", False) for item in records
+            ),
             "actions": [item.get("assessment", {}).get("action") for item in records],
         }
     summary["status"] = "COMPLETED"
