@@ -25,6 +25,10 @@ Why these components: LangGraph (Phase 2) owns durable stateful research workflo
 
 Phase 0/1 provides a typed read-only integration layer, synthetic mock platform, health endpoints, a bounded `ValuationAgent`, and a Docker containment runner for future CodeAct execution. It supports tracked Java-platform symbols only and makes no persistent valuation or portfolio writes.
 
+## Phase 2 milestone (closed)
+
+Phase 2 established persistent, evidence-grounded stateful research while preserving deterministic execution authority. The final status is **PASS**: Phase 2A, 2B, 2C, and 2E passed; Phase 2D is deliberately deferred because canonical AAPL lacks qualifying first-party FY2027 guidance, not because of an architectural failure. See [the Phase 2 milestone record](docs/PHASE2_STATEFUL_RESEARCH_MILESTONE_2026-08-11.md) for authority boundaries, canonical acceptance artifacts, and verification notes.
+
 ## Phase 1 evidence: seven model shapes
 
 **Phase 1 finding:** More agents or more models are not automatically better. On the latest frozen public synthetic AAPL rerun, direct typed Ministral was the fastest grounded success (49.0s); the NOOA Controller plus Router auto-selected advisory also produced a grounded report, but took 313.5s. The Controller selected one advisory capability; Router returned non-empty raw content without an explicit route hint. The current worker boundary preserves non-empty raw advisory content for Controller review, but never executes it or treats it as evidence. The result is evidence for bounded orchestration and evaluation, not a claim of multi-agent superiority.

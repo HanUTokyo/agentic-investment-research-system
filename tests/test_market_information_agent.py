@@ -45,6 +45,52 @@ async def test_market_executor_rejects_repeat_and_malformed_source_output() -> N
 
 
 @pytest.mark.asyncio
+async def test_market_agent_retrieves_dated_sec_operating_observation_with_provenance() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("company_tickers.json"):
+            return httpx.Response(200, json={"0": {"ticker": "ACME", "cik_str": 1234}})
+        if request.url.path.endswith("CIK0000001234.json"):
+            return httpx.Response(
+                200,
+                json={
+                    "facts": {
+                        "us-gaap": {
+                            "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                                "units": {
+                                    "USD": [
+                                        {
+                                            "form": "10-Q", "fp": "Q2", "fy": 2026,
+                                            "filed": "2026-08-01", "end": "2026-06-30",
+                                            "val": 1250000, "accn": "0000001234-26-000001",
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+            )
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        executor = MarketInformationEvidenceExecutor(MarketInformationAgent(client))
+        case = ResearchCase(query="q", objective="o", valuation_context={"symbol": "ACME"})
+        evidence = await executor(
+            case,
+            ResearchAction(
+                action="REQUEST_EVIDENCE", reason="Need filing evidence",
+                request="Obtain an official operating revenue observation.",
+            ),
+        )
+
+    assert evidence[0].claim_scope == ("operating_information",)
+    assert evidence[0].source == "SEC company facts API"
+    assert evidence[0].evidence.source_path.startswith("external.sec.")
+    assert evidence[0].provenance["form"] == "10-Q"
+    assert evidence[0].provenance["filed"] == "2026-08-01"
+
+
+@pytest.mark.asyncio
 async def test_controller_reassesses_the_evidence_added_by_dispatcher() -> None:
     class EvidenceAwareController:
         def __init__(self) -> None:

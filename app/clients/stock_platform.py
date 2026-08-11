@@ -76,6 +76,30 @@ class StockPlatformClient:
         result = await self._write_json(f"/api/valuations/{self._symbol(symbol)}/evaluate", payload)
         return self._parse(ValuationEvaluation, result)
 
+    async def get_forecast_template(self, symbol: str) -> dict[str, Any]:
+        """Read the Java-owned explicit-forecast template without mutating it."""
+        result = await self._read_json(
+            f"/api/valuations/{self._symbol(symbol)}/forecast-template"
+        )
+        if not isinstance(result, dict):
+            raise UpstreamProtocolError("forecast template response must be an object")
+        return result
+
+    async def preview_explicit_forecast(
+        self, symbol: str, *, archetype: str, scenarios: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Run a bounded Java preview; only deterministic executors may provide overrides."""
+        payload: dict[str, Any] = {"archetype": archetype}
+        if scenarios is not None:
+            payload["scenarios"] = scenarios
+        result = await self._write_json(
+            f"/api/valuations/{self._symbol(symbol)}/forecast-preview",
+            payload,
+        )
+        if not isinstance(result, dict):
+            raise UpstreamProtocolError("forecast preview response must be an object")
+        return result
+
     async def solve_market_implied_assumptions(self, symbol: str) -> dict[str, Any] | None:
         # `/evaluate` does not load a persisted scenario.  Reuse the saved BASE
         # settings exposed by the read-only valuation snapshot so the reverse-DCF

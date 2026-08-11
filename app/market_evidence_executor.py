@@ -20,7 +20,12 @@ class MarketInformationEvidenceExecutor:
     async def __call__(self, case: ResearchCase, action: ResearchAction) -> tuple[ResearchEvidence, ...]:
         if action.action != "REQUEST_EVIDENCE":
             raise IllegalResearchTransition("market executor accepts REQUEST_EVIDENCE only")
-        if any("market_information" in item.claim_scope for item in case.evidence):
+        scope = (
+            "operating_information"
+            if self._is_operating_request(action.request or "")
+            else "market_information"
+        )
+        if any(scope in item.claim_scope for item in case.evidence):
             raise IllegalResearchTransition("identical market information request is already satisfied")
         symbol = str(case.valuation_context.get("symbol", "")).upper()
         if not symbol:
@@ -36,15 +41,38 @@ class MarketInformationEvidenceExecutor:
         )
         if not result.facts:
             raise IllegalResearchTransition("market specialist returned no factual evidence")
+        source_prefix = "external.sec" if result.source == "SEC company facts API" else "external.yahoo"
         return tuple(
             ResearchEvidence(
-                evidence=Evidence(claim=fact.claim, source_path=f"external.yahoo.{fact.source_path}", value=fact.value),
+                evidence=Evidence(
+                    claim=fact.claim,
+                    source_path=f"{source_prefix}.{fact.source_path}",
+                    value=fact.value,
+                ),
                 source=result.source,
                 source_type="external",
                 retrieved_at=fact.retrieved_at,
-                claim_scope=("market_information",),
-                provenance={"url": fact.source_url, "source_path": fact.source_path},
+                claim_scope=(scope,),
+                provenance={
+                    "url": fact.source_url,
+                    "source_path": fact.source_path,
+                    **fact.provenance,
+                },
                 numerical_authority="external_source",
             )
             for fact in result.facts
+        )
+
+    @staticmethod
+    def _is_operating_request(information_need: str) -> bool:
+        return any(
+            marker in information_need.lower()
+            for marker in (
+                "official operating",
+                "operating revenue",
+                "official revenue",
+                "reported revenue",
+                "revenue guidance",
+                "operating outlook",
+            )
         )
