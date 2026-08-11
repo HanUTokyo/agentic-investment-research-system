@@ -10,6 +10,7 @@ dependencies = [
   "nooa @ git+https://github.com/NVIDIA-NeMo/labs-OO-Agents.git@v0.0.7",
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
+  "langgraph>=0.2.76,<0.3",
 ]
 
 [dependency-groups]
