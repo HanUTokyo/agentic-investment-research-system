@@ -1,0 +1,68 @@
+[
+  {
+    "case_id": "normalized_tags",
+    "prompt": "Implement exactly this Python function: `def normalized_tags(tags: list[str]) -> list[str]`. Return unique, non-empty tags after trimming whitespace and lowercasing them, sorted alphabetically. Use only the Python standard language features; do not import anything.",
+    "function_name": "normalized_tags",
+    "test_source": "from solution import normalized_tags\n\nassert normalized_tags([' Beta ', 'alpha', '', 'ALPHA', ' beta']) == ['alpha', 'beta']\nassert normalized_tags([]) == []\n"
+  },
+  {
+    "case_id": "collapse_balances",
+    "prompt": "Implement exactly this Python function: `def collapse_balances(rows: list[tuple[str, int]]) -> dict[str, int]`. Sum integer balances by string key. Preserve keys whose total is zero. Do not mutate the input and do not import anything.",
+    "function_name": "collapse_balances",
+    "test_source": "from solution import collapse_balances\n\nrows = [('cash', 3), ('debt', -2), ('cash', 4), ('debt', 2)]\nassert collapse_balances(rows) == {'cash': 7, 'debt': 0}\nassert rows == [('cash', 3), ('debt', -2), ('cash', 4), ('debt', 2)]\nassert collapse_balances([]) == {}\n"
+  },
+  {
+    "case_id": "longest_increasing_run",
+    "prompt": "Implement exactly this Python function: `def longest_increasing_run(values: list[int]) -> int`. Return the length of the longest contiguous strictly increasing run. Return 0 for an empty list. Do not import anything.",
+    "function_name": "longest_increasing_run",
+    "test_source": "from solution import longest_increasing_run\n\nassert longest_increasing_run([]) == 0\nassert longest_increasing_run([5]) == 1\nassert longest_increasing_run([1, 2, 3, 1, 2, 3, 4, 0]) == 4\nassert longest_increasing_run([4, 3, 2]) == 1\n"
+  },
+  {
+    "case_id": "bounded_ratio",
+    "prompt": "Implement exactly this Python function: `def bounded_ratio(numerator: int, denominator: int) -> float`. Return numerator divided by denominator only when denominator is positive. Raise ValueError when denominator is zero or negative. Do not import anything.",
+    "function_name": "bounded_ratio",
+    "test_source": "from solution import bounded_ratio\n\nassert bounded_ratio(3, 2) == 1.5\nassert bounded_ratio(-3, 2) == -1.5\nfor denominator in (0, -1):\n    try:\n        bounded_ratio(1, denominator)\n    except ValueError:\n        pass\n    else:\n        raise AssertionError('expected ValueError')\n"
+  },
+  {
+    "case_id": "first_unique",
+    "prompt": "Repair and return exactly this Python function: `def first_unique(items: list[str]) -> str | None`. It must return the first string whose total occurrence count in the entire list is one, or None when no such string exists. The input must not be mutated. Do not import anything.",
+    "function_name": "first_unique",
+    "test_source": "from solution import first_unique\n\nitems = ['a', 'b', 'a', 'c', 'b', 'd']\nassert first_unique(items) == 'c'\nassert items == ['a', 'b', 'a', 'c', 'b', 'd']\nassert first_unique(['a', 'a']) is None\nassert first_unique([]) is None\n"
+  },
+  {
+    "case_id": "parse_positive_ints",
+    "prompt": "Implement exactly this Python function: `def parse_positive_ints(values: list[str]) -> list[int]`. Trim each input string. Ignore blank strings. Convert every remaining string to an integer and return the values in the same order. Raise ValueError if any non-blank value is not a positive integer. Do not import anything.",
+    "function_name": "parse_positive_ints",
+    "test_source": "from solution import parse_positive_ints\n\nassert parse_positive_ints([' 3 ', '', '7']) == [3, 7]\nfor values in (['0'], ['-2'], ['x']):\n    try:\n        parse_positive_ints(values)\n    except ValueError:\n        pass\n    else:\n        raise AssertionError('expected ValueError')\n"
+  },
+  {
+    "case_id": "merge_known_preferences",
+    "prompt": "Implement exactly this Python function: `def merge_known_preferences(defaults: dict[str, str], overrides: dict[str, str]) -> dict[str, str]`. Return a new dictionary with every default key. Apply an override only when its key already exists in defaults; ignore unknown override keys. Do not mutate either input and do not import anything.",
+    "function_name": "merge_known_preferences",
+    "test_source": "from solution import merge_known_preferences\n\ndefaults = {'theme': 'light', 'locale': 'en'}\noverrides = {'theme': 'dark', 'extra': 'ignored'}\nassert merge_known_preferences(defaults, overrides) == {'theme': 'dark', 'locale': 'en'}\nassert defaults == {'theme': 'light', 'locale': 'en'}\nassert overrides == {'theme': 'dark', 'extra': 'ignored'}\n"
+  },
+  {
+    "case_id": "stable_partition",
+    "prompt": "Implement exactly this Python function: `def stable_partition(values: list[int]) -> tuple[list[int], list[int]]`. Return two newly created lists: first the even values, then the odd values. Preserve each group's original order and do not mutate the input. Do not import anything.",
+    "function_name": "stable_partition",
+    "test_source": "from solution import stable_partition\n\nvalues = [3, 2, 4, 1, 6, 5]\nassert stable_partition(values) == ([2, 4, 6], [3, 1, 5])\nassert values == [3, 2, 4, 1, 6, 5]\nassert stable_partition([]) == ([], [])\n"
+  },
+  {
+    "case_id": "invoice_total",
+    "prompt": "Implement exactly this Python function: `def invoice_total(invoices: list[dict[str, object]]) -> int`. Each invoice has `status` and `amount` keys. Sum the integer amounts only for invoices where status equals the exact string `OPEN`. Ignore invoices with any other status. Raise ValueError if an OPEN invoice amount is not an int. Do not import anything.",
+    "function_name": "invoice_total",
+    "test_source": "from solution import invoice_total\n\nassert invoice_total([{'status': 'OPEN', 'amount': 4}, {'status': 'PAID', 'amount': 99}, {'status': 'OPEN', 'amount': -1}]) == 3\ntry:\n    invoice_total([{'status': 'OPEN', 'amount': '4'}])\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError('expected ValueError')\n"
+  },
+  {
+    "case_id": "deduplicate_records",
+    "prompt": "Implement exactly this Python function: `def deduplicate_records(records: list[dict[str, str]]) -> list[dict[str, str]]`. Each record has an `id` key. Keep only the first record for each id, preserve input order, and return new dictionaries so later caller mutation cannot change the original records. Do not mutate input and do not import anything.",
+    "function_name": "deduplicate_records",
+    "test_source": "from solution import deduplicate_records\n\nrecords = [{'id': 'a', 'value': 'first'}, {'id': 'a', 'value': 'second'}, {'id': 'b', 'value': 'third'}]\nresult = deduplicate_records(records)\nassert result == [{'id': 'a', 'value': 'first'}, {'id': 'b', 'value': 'third'}]\nresult[0]['value'] = 'changed'\nassert records[0]['value'] == 'first'\n"
+  },
+  {
+    "case_id": "window_maximums",
+    "prompt": "Implement exactly this Python function: `def window_maximums(values: list[int], width: int) -> list[int]`. Return the maximum of every contiguous window of exactly width items. Raise ValueError when width is not positive or is greater than the input length. Do not import anything.",
+    "function_name": "window_maximums",
+    "test_source": "from solution import window_maximums\n\nassert window_maximums([1, 3, 2, 5, 4], 3) == [3, 5, 5]\nassert window_maximums([7], 1) == [7]\nfor width in (0, 2):\n    try:\n        window_maximums([7], width)\n    except ValueError:\n        pass\n    else:\n        raise AssertionError('expected ValueError')\n"
+  }
+]
